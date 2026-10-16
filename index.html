@@ -1,110 +1,246 @@
 <!doctype html>
 <html lang="zh-Hant">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>信用卡記帳 Mobile Demo</title>
-<style>
-:root{
-  --bg:#f3fbff;--card:#fff;--text:#23415a;--muted:#7893a8;--line:#d9edf7;
-  --accent:#74b9e6;--soft:#efeaff;--shadow:0 10px 28px rgba(78,145,190,.12);
-}
-*{box-sizing:border-box} body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Noto Sans TC","PingFang TC",sans-serif;background:var(--bg);color:var(--text)}
-button,input,select,textarea{font:inherit}
-.app{max-width:480px;margin:0 auto;min-height:100vh;padding-bottom:90px}
-header{position:sticky;top:0;z-index:20;padding:18px 14px 10px;background:rgba(243,251,255,.95);backdrop-filter:blur(12px)}
-h1{font-size:22px;margin:0}.sub{font-size:12px;color:var(--muted);margin-top:4px}
-.page{display:none;padding:8px 14px 20px}.page.active{display:block}
-.box{background:var(--card);border:1px solid var(--line);border-radius:22px;padding:16px;box-shadow:var(--shadow);margin-bottom:12px}
-h2{font-size:17px;margin:0 0 14px}
-.field{margin-bottom:13px} label{display:block;font-size:12px;font-weight:800;color:#5f7f96;margin-bottom:7px}
-input,select,textarea{width:100%;border:1px solid var(--line);border-radius:14px;padding:13px 14px;background:#fcfbff;color:var(--text);outline:none}
-textarea{min-height:78px;resize:vertical}.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.btn{border:0;border-radius:14px;padding:13px 14px;font-weight:900}
-.primary{width:100%;background:linear-gradient(135deg,#74b9e6,#9fd4f4);color:#fff}
-.soft{background:#f1edfc;color:#4f91bd}.danger{background:#fff0f2;color:#ae4d5d}
-.toggleLine{display:flex;align-items:center;gap:10px;border:1px solid var(--line);border-radius:14px;padding:12px;background:#f8fcff}
-.toggle{width:44px;height:26px;border-radius:999px;background:#cfe4ef;position:relative;flex:none}.toggle:after{content:"";position:absolute;width:20px;height:20px;left:3px;top:3px;border-radius:50%;background:#fff;transition:.2s;box-shadow:0 2px 5px rgba(0,0,0,.12)}
-.toggle.on{background:var(--accent)}.toggle.on:after{transform:translateX(18px)}.hidden{display:none!important}
-.cycle{background:linear-gradient(135deg,#e7f6ff,#fbfeff);border:1px solid #cbe8f7;border-radius:16px;padding:13px;margin-bottom:14px}.cycle small{color:var(--muted)}.cycle strong{display:block;font-size:16px;margin-top:4px}.cycle p{font-size:12px;color:var(--muted);margin:4px 0 0}
-.summary{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}.sum{background:#fff;border:1px solid var(--line);border-radius:17px;padding:13px}.sum small{color:var(--muted);font-size:11px}.sum strong{display:block;font-size:20px;margin-top:4px}
-.tabs{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;margin-bottom:10px}.tabs::-webkit-scrollbar{display:none}.chip{border:1px solid var(--line);background:#fff;color:#658399;border-radius:999px;padding:9px 12px;font-size:12px;font-weight:900;white-space:nowrap}.chip.active{background:var(--accent);border-color:var(--accent);color:#fff}
-.legend{display:flex;gap:8px;overflow-x:auto;margin-bottom:10px}.legend span{font-size:11px;font-weight:800;padding:6px 9px;border-radius:999px;white-space:nowrap}
-.l-ctbc{background:#eaf4f9}.l-cathay{background:#ebf8f0}.l-taishin{background:#fff0f0}.l-fubon{background:#fff7e4}
-.record{border:1px solid var(--line);border-radius:18px;padding:14px;margin-bottom:10px;background:#fff}.ctbc{background:#f1f8fb;border-color:#cfe5ee}.cathay{background:#f1faf5;border-color:#cfe7d8}.taishin{background:#fff5f5;border-color:#efd4d4}.fubon{background:#fff9ec;border-color:#eddcaf}
-.rtop{display:flex;justify-content:space-between;gap:10px}.date{font-size:12px;color:var(--muted)}.item{font-size:15px;font-weight:900;margin-top:3px}.bank{font-size:11px;padding:5px 8px;border-radius:999px;background:rgba(255,255,255,.7);white-space:nowrap}.money{font-size:19px;font-weight:900;margin-top:12px}.meta{font-size:12px;color:var(--muted);margin-top:4px}
-.rfoot{display:flex;align-items:center;justify-content:space-between;margin-top:12px;padding-top:10px;border-top:1px solid rgba(0,0,0,.05)}.status{font-size:11px;font-weight:900;padding:5px 8px;border-radius:999px;background:#e9f6ef;color:#47725e}.actions{display:flex;gap:7px}.mini{border:0;border-radius:10px;padding:8px 10px;font-size:12px;font-weight:900}.edit{background:#e7f5fd;color:#4f91bd}.del{background:#fff0f2;color:#aa4d5d}
-.empty{padding:30px 10px;text-align:center;color:var(--muted);font-size:13px}
-.remind{background:#fff8e9;border:1px solid #ead9aa;border-radius:18px;padding:14px;margin-bottom:10px}.remind.due{background:#fff1f1;border-color:#e8c4c4}.remTop{display:flex;justify-content:space-between;gap:10px}.remTitle{font-weight:900}.tag{font-size:11px;font-weight:900;padding:5px 8px;border-radius:999px;background:#fff0c8;color:#88661f;white-space:nowrap}.remind.due .tag{background:#ffe0e0;color:#a04c4c}.remMeta{font-size:12px;color:var(--muted);margin-top:4px}.donePay{width:100%;margin-top:11px;border:0;border-radius:12px;padding:11px;background:var(--accent);color:#fff;font-weight:900}.nextInfo{font-size:12px;color:var(--muted);background:#fff;border:1px solid var(--line);border-radius:14px;padding:11px;margin-bottom:12px}
-.nav{position:fixed;left:50%;bottom:0;transform:translateX(-50%);width:min(100%,480px);display:grid;grid-template-columns:repeat(3,1fr);background:rgba(255,255,255,.96);border-top:1px solid var(--line);backdrop-filter:blur(12px);padding:8px 10px calc(8px + env(safe-area-inset-bottom));z-index:30}.nav button{border:0;background:transparent;color:#8099aa;font-size:11px;font-weight:900;padding:7px}.nav button.active{color:#4f9fd4}.nav .ico{display:block;font-size:21px;margin-bottom:2px}
-.topBtn{position:fixed;right:max(16px,calc((100vw - 480px)/2 + 16px));bottom:92px;width:44px;height:44px;border:0;border-radius:50%;background:#5aa9dc;color:#fff;font-size:20px;box-shadow:0 8px 18px rgba(0,0,0,.18);opacity:0;pointer-events:none;transition:.2s;z-index:25}.topBtn.show{opacity:1;pointer-events:auto}
-.modal{position:fixed;inset:0;background:rgba(30,24,50,.32);display:none;align-items:flex-end;z-index:50}.modal.show{display:flex}.sheet{width:min(100%,480px);max-height:88vh;overflow:auto;margin:0 auto;background:#fff;border-radius:24px 24px 0 0;padding:18px 16px calc(20px + env(safe-area-inset-bottom))}.sheetHead{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}.sheetHead h3{margin:0}.close{border:0;background:#edf7fc;width:34px;height:34px;border-radius:50%}
-</style>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>信用卡記帳</title>
+  <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-<div class="app">
-<header><h1>☁️ 信用卡記帳</h1><div class="sub">真正可操作的前端 Demo・資料先存在瀏覽器</div></header>
+  <div class="app">
+    <header>
+      <h1>☁️ 信用卡記帳</h1>
+      <div class="sub">手機版前端・目前資料暫存在瀏覽器</div>
+    </header>
 
-<section id="addPage" class="page active">
-  <div class="box">
-    <h2>新增刷卡紀錄</h2>
-    <div class="field"><label>銀行</label><select id="bankSel"><option value="中信">中信</option><option value="國泰">國泰</option><option value="台新">台新</option><option value="富邦">富邦</option></select></div>
-    <div class="field" id="cardField"><label>中信卡別</label><select id="cardSel"><option>無限卡VISA</option><option>UniOpen卡</option><option>line pay卡</option><option>無限卡JCB</option><option>Sogo聯名卡</option></select></div>
-    <div class="row">
-      <div class="field"><label>刷卡日期</label><input id="dateInp" type="date" value="2026-10-16"></div>
-      <div class="field"><label>進度</label><select id="statusSel"><option>刷</option><option>繳</option></select></div>
+    <section id="addPage" class="page active">
+      <div class="box">
+        <h2>新增刷卡紀錄</h2>
+
+        <div class="field">
+          <label>銀行</label>
+          <select id="bankSel">
+            <option value="中信">中信</option>
+            <option value="國泰">國泰</option>
+            <option value="台新">台新</option>
+            <option value="富邦">富邦</option>
+          </select>
+        </div>
+
+        <div class="field" id="cardField">
+          <label>中信卡別</label>
+          <select id="cardSel">
+            <option>無限卡VISA</option>
+            <option>UniOpen卡</option>
+            <option>line pay卡</option>
+            <option>無限卡JCB</option>
+            <option>Sogo聯名卡</option>
+          </select>
+        </div>
+
+        <div class="row">
+          <div class="field">
+            <label>刷卡日期</label>
+            <input id="dateInp" type="date" value="2026-10-16">
+          </div>
+          <div class="field">
+            <label>進度</label>
+            <select id="statusSel">
+              <option>刷</option>
+              <option>繳</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="cycle">
+          <small>預計寫入帳期</small>
+          <strong id="cycleTitle"></strong>
+          <p id="cycleRange"></p>
+        </div>
+
+        <div class="field">
+          <label>項目</label>
+          <input id="itemInp" placeholder="例如：Olive Young">
+        </div>
+
+        <div class="field">
+          <label>台幣金額</label>
+          <input id="twdInp" type="number" inputmode="decimal" placeholder="可留空，之後再補">
+        </div>
+
+        <div class="field">
+          <label>外幣消費</label>
+          <div class="toggleLine" id="foreignLine">
+            <div id="foreignToggle" class="toggle"></div>
+            <div>
+              <b class="foreign-title">這筆是外幣消費</b>
+              <div class="sub">開啟後可輸入幣別與外幣金額</div>
+            </div>
+          </div>
+        </div>
+
+        <div id="foreignFields" class="hidden">
+          <div class="row">
+            <div class="field">
+              <label>幣別</label>
+              <select id="currencySel">
+                <option>KRW</option>
+                <option>JPY</option>
+                <option>USD</option>
+                <option>EUR</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>外幣金額</label>
+              <input id="foreignInp" type="number" inputmode="decimal">
+            </div>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>備註</label>
+          <textarea id="noteInp"></textarea>
+        </div>
+
+        <button id="saveBtn" class="btn primary">儲存刷卡紀錄</button>
+      </div>
+    </section>
+
+    <section id="recordsPage" class="page">
+      <div id="reminders"></div>
+      <div id="nextInfo" class="nextInfo"></div>
+
+      <div class="summary">
+        <div class="sum">
+          <small>這個月筆數</small>
+          <strong id="countVal">0</strong>
+        </div>
+        <div class="sum">
+          <small>台幣合計</small>
+          <strong id="totalVal">NT$0</strong>
+        </div>
+      </div>
+
+      <div class="section-label">月份</div>
+      <div id="monthTabs" class="tabs"></div>
+
+      <div class="legend">
+        <span class="l-ctbc">中信</span>
+        <span class="l-cathay">國泰</span>
+        <span class="l-taishin">台新</span>
+        <span class="l-fubon">富邦</span>
+      </div>
+
+      <div id="bankTabs" class="tabs">
+        <button class="chip active" data-bank="全部">全部銀行</button>
+        <button class="chip" data-bank="中信">中信</button>
+        <button class="chip" data-bank="國泰">國泰</button>
+        <button class="chip" data-bank="台新">台新</button>
+        <button class="chip" data-bank="富邦">富邦</button>
+      </div>
+
+      <div class="field">
+        <input id="searchInp" placeholder="搜尋項目、備註、卡別">
+      </div>
+
+      <div id="recordList"></div>
+    </section>
+
+    <section id="pendingPage" class="page">
+      <div class="box">
+        <h2>待處理</h2>
+        <div class="sub pending-note">這裡會列出「有外幣金額、但還沒有台幣金額」的紀錄。</div>
+        <div id="pendingList"></div>
+      </div>
+    </section>
+  </div>
+
+  <button id="topBtn" class="topBtn">↑</button>
+
+  <nav class="nav">
+    <button class="active" data-page="addPage"><span class="ico">＋</span>新增</button>
+    <button data-page="recordsPage"><span class="ico">▤</span>紀錄</button>
+    <button data-page="pendingPage"><span class="ico">◷</span>待處理</button>
+  </nav>
+
+  <div id="editModal" class="modal">
+    <div class="sheet">
+      <div class="sheetHead">
+        <h3>修改刷卡紀錄</h3>
+        <button id="closeEdit" class="close">✕</button>
+      </div>
+
+      <input id="editId" type="hidden">
+
+      <div class="field">
+        <label>銀行</label>
+        <select id="editBank">
+          <option>中信</option>
+          <option>國泰</option>
+          <option>台新</option>
+          <option>富邦</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label>卡別</label>
+        <input id="editCard">
+      </div>
+
+      <div class="row">
+        <div class="field">
+          <label>日期</label>
+          <input id="editDate" type="date">
+        </div>
+        <div class="field">
+          <label>進度</label>
+          <select id="editStatus">
+            <option>刷</option>
+            <option>繳</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>項目</label>
+        <input id="editItem">
+      </div>
+
+      <div class="field">
+        <label>台幣金額</label>
+        <input id="editTwd" type="number">
+      </div>
+
+      <div class="row">
+        <div class="field">
+          <label>幣別</label>
+          <select id="editCurrency">
+            <option value="">無</option>
+            <option>KRW</option>
+            <option>JPY</option>
+            <option>USD</option>
+            <option>EUR</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>外幣金額</label>
+          <input id="editForeign" type="number">
+        </div>
+      </div>
+
+      <div class="field">
+        <label>備註</label>
+        <textarea id="editNote"></textarea>
+      </div>
+
+      <div class="row">
+        <button id="modalDelete" class="btn danger">刪除</button>
+        <button id="modalSave" class="btn primary">儲存修改</button>
+      </div>
     </div>
-    <div class="cycle"><small>預計寫入帳期</small><strong id="cycleTitle"></strong><p id="cycleRange"></p></div>
-    <div class="field"><label>項目</label><input id="itemInp" placeholder="例如：Olive Young"></div>
-    <div class="field"><label>台幣金額</label><input id="twdInp" type="number" inputmode="decimal" placeholder="可留空，之後再補"></div>
-    <div class="field"><label>外幣消費</label><div class="toggleLine" id="foreignLine"><div id="foreignToggle" class="toggle"></div><div><b style="font-size:14px">這筆是外幣消費</b><div class="sub">開啟後可輸入幣別與外幣金額</div></div></div></div>
-    <div id="foreignFields" class="hidden"><div class="row"><div class="field"><label>幣別</label><select id="currencySel"><option>KRW</option><option>JPY</option><option>USD</option><option>EUR</option></select></div><div class="field"><label>外幣金額</label><input id="foreignInp" type="number" inputmode="decimal"></div></div></div>
-    <div class="field"><label>備註</label><textarea id="noteInp"></textarea></div>
-    <button id="saveBtn" class="btn primary">儲存刷卡紀錄</button>
   </div>
-</section>
 
-<section id="recordsPage" class="page">
-  <div id="reminders"></div>
-  <div id="nextInfo" class="nextInfo"></div>
-  <div class="summary"><div class="sum"><small>這個月筆數</small><strong id="countVal">0</strong></div><div class="sum"><small>台幣合計</small><strong id="totalVal">NT$0</strong></div></div>
-  <div style="font-size:12px;font-weight:900;color:#5f7f96;margin:3px 0 7px">月份</div>
-  <div id="monthTabs" class="tabs"></div>
-  <div class="legend"><span class="l-ctbc">中信</span><span class="l-cathay">國泰</span><span class="l-taishin">台新</span><span class="l-fubon">富邦</span></div>
-  <div id="bankTabs" class="tabs">
-    <button class="chip active" data-bank="全部">全部銀行</button><button class="chip" data-bank="中信">中信</button><button class="chip" data-bank="國泰">國泰</button><button class="chip" data-bank="台新">台新</button><button class="chip" data-bank="富邦">富邦</button>
-  </div>
-  <div class="field"><input id="searchInp" placeholder="搜尋項目、備註、卡別"></div>
-  <div id="recordList"></div>
-</section>
-
-<section id="pendingPage" class="page">
-  <div class="box"><h2>待處理</h2><div class="sub" style="margin-bottom:12px">這裡會列出「有外幣金額、但還沒有台幣金額」的紀錄。</div><div id="pendingList"></div></div>
-</section>
-</div>
-
-<button id="topBtn" class="topBtn">↑</button>
-<nav class="nav">
-<button class="active" data-page="addPage"><span class="ico">＋</span>新增</button>
-<button data-page="recordsPage"><span class="ico">▤</span>紀錄</button>
-<button data-page="pendingPage"><span class="ico">◷</span>待處理</button>
-</nav>
-
-<div id="editModal" class="modal">
-<div class="sheet">
-  <div class="sheetHead"><h3>修改刷卡紀錄</h3><button id="closeEdit" class="close">✕</button></div>
-  <input id="editId" type="hidden">
-  <div class="field"><label>銀行</label><select id="editBank"><option>中信</option><option>國泰</option><option>台新</option><option>富邦</option></select></div>
-  <div class="field"><label>卡別</label><input id="editCard"></div>
-  <div class="row"><div class="field"><label>日期</label><input id="editDate" type="date"></div><div class="field"><label>進度</label><select id="editStatus"><option>刷</option><option>繳</option></select></div></div>
-  <div class="field"><label>項目</label><input id="editItem"></div>
-  <div class="field"><label>台幣金額</label><input id="editTwd" type="number"></div>
-  <div class="row"><div class="field"><label>幣別</label><select id="editCurrency"><option value="">無</option><option>KRW</option><option>JPY</option><option>USD</option><option>EUR</option></select></div><div class="field"><label>外幣金額</label><input id="editForeign" type="number"></div></div>
-  <div class="field"><label>備註</label><textarea id="editNote"></textarea></div>
-  <div class="row"><button id="modalDelete" class="btn danger">刪除</button><button id="modalSave" class="btn primary">儲存修改</button></div>
-</div>
-</div>
-
-<script src="js/app.js"></script>
+  <script src="js/config.js"></script>
+  <script src="js/app.js"></script>
 </body>
 </html>
