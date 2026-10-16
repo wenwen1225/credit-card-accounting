@@ -3,6 +3,13 @@
 
 const RECORDS_CACHE_KEY = APP_CONFIG.storage.recordsCacheKey;
 
+function normalizeTransactionType(record){
+  const raw = String(record?.transactionType || record?.type || '').toLowerCase();
+  if(['refund','退刷','退款'].includes(raw)) return 'refund';
+  if(Number(record?.twd) < 0) return 'refund';
+  return 'purchase';
+}
+
 function mapApiRecords(apiRecords){
   return (Array.isArray(apiRecords) ? apiRecords : []).map((r, index) => ({
     id: index + 1,
@@ -15,6 +22,7 @@ function mapApiRecords(apiRecords){
     foreign: r.foreignAmount === '' || r.foreignAmount === undefined ? null : r.foreignAmount,
     status: r.status || '',
     note: r.note || '',
+    transactionType: normalizeTransactionType(r),
     source: r.source || null
   }));
 }
@@ -25,6 +33,10 @@ function readRecordsCache(year){
     if(!raw) return null;
     const cache = JSON.parse(raw);
     if(Number(cache.year) !== Number(year) || !Array.isArray(cache.records)) return null;
+    cache.records = cache.records.map(r => ({
+      ...r,
+      transactionType: r.transactionType || (Number(r.twd) < 0 ? 'refund' : 'purchase')
+    }));
     return cache;
   }catch(_){
     return null;
