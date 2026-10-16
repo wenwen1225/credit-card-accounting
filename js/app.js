@@ -1,79 +1,93 @@
 const PAY_KEY = APP_CONFIG.storage.paidKey;
 const API_URL = APP_CONFIG.apiUrl;
 
+// 明確抓 DOM，避免依賴瀏覽器把 id 自動變成全域變數
+const bankSel = document.getElementById('bankSel');
+const cardField = document.getElementById('cardField');
+const cardSel = document.getElementById('cardSel');
+const dateInp = document.getElementById('dateInp');
+const statusSel = document.getElementById('statusSel');
+const cycleTitle = document.getElementById('cycleTitle');
+const cycleRange = document.getElementById('cycleRange');
+const itemInp = document.getElementById('itemInp');
+const twdInp = document.getElementById('twdInp');
+const foreignLine = document.getElementById('foreignLine');
+const foreignToggle = document.getElementById('foreignToggle');
+const foreignFields = document.getElementById('foreignFields');
+const currencySel = document.getElementById('currencySel');
+const foreignInp = document.getElementById('foreignInp');
+const noteInp = document.getElementById('noteInp');
+const saveBtn = document.getElementById('saveBtn');
+const reminders = document.getElementById('reminders');
+const nextInfo = document.getElementById('nextInfo');
+const countVal = document.getElementById('countVal');
+const totalVal = document.getElementById('totalVal');
+const monthTabs = document.getElementById('monthTabs');
+const searchInp = document.getElementById('searchInp');
+const recordList = document.getElementById('recordList');
+const pendingList = document.getElementById('pendingList');
+const topBtn = document.getElementById('topBtn');
+const editModal = document.getElementById('editModal');
+const closeEdit = document.getElementById('closeEdit');
+const editId = document.getElementById('editId');
+const editBank = document.getElementById('editBank');
+const editCard = document.getElementById('editCard');
+const editDate = document.getElementById('editDate');
+const editStatus = document.getElementById('editStatus');
+const editItem = document.getElementById('editItem');
+const editTwd = document.getElementById('editTwd');
+const editCurrency = document.getElementById('editCurrency');
+const editForeign = document.getElementById('editForeign');
+const editNote = document.getElementById('editNote');
+const modalDelete = document.getElementById('modalDelete');
+const modalSave = document.getElementById('modalSave');
+
 let records = [];
 let paid = JSON.parse(localStorage.getItem(PAY_KEY) || '{}');
 let currentMonth = '';
 let bankFilter = '全部';
 
-function persistPaid(){
-  localStorage.setItem(PAY_KEY, JSON.stringify(paid));
-}
+function persistPaid(){ localStorage.setItem(PAY_KEY, JSON.stringify(paid)); }
+function esc(s){ return String(s ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+function pad(n){ return String(n).padStart(2, '0'); }
+function fmtMoney(n){ return n === null || n === '' || n === undefined ? '待補' : 'NT$' + Number(n).toLocaleString(); }
+function bankClass(b){ return b === '中信' ? 'ctbc' : b === '國泰' ? 'cathay' : b === '台新' ? 'taishin' : 'fubon'; }
 
-function esc(s){
-  return String(s ?? '').replace(/[&<>"']/g, m => ({
-    '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'
-  }[m]));
-}
-
-function pad(n){
-  return String(n).padStart(2, '0');
-}
-
-function fmtMoney(n){
-  return n === null || n === '' ? '待補' : 'NT$' + Number(n).toLocaleString();
+function normalizeClientDate(value){
+  if(!value) return '';
+  const s = String(value).trim();
+  let m = s.match(/^(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})$/);
+  if(m) return `${m[1]}-${pad(m[2])}-${pad(m[3])}`;
+  m = s.match(/^(\d{4})(\d{2})(\d{2})$/);
+  if(m) return `${m[1]}-${m[2]}-${m[3]}`;
+  return s;
 }
 
 function monthKey(d){
-  return d ? d.slice(0, 7) : '';
-}
-
-function bankClass(b){
-  return b === '中信' ? 'ctbc' : b === '國泰' ? 'cathay' : b === '台新' ? 'taishin' : 'fubon';
+  const s = normalizeClientDate(d);
+  const m = s.match(/^(\d{4})-(\d{2})/);
+  return m ? `${m[1]}-${m[2]}` : '';
 }
 
 function getCycle(startDay, dateStr){
   const d = new Date(dateStr + 'T12:00:00');
   let y = d.getFullYear();
   let m = d.getMonth() + 1;
-
-  if(d.getDate() < startDay){
-    m--;
-    if(m === 0){
-      m = 12;
-      y--;
-    }
-  }
-
+  if(d.getDate() < startDay){ m--; if(m === 0){ m = 12; y--; } }
   const s = new Date(y, m - 1, startDay, 12);
-  let ey = y;
-  let em = m + 1;
-  if(em === 13){
-    em = 1;
-    ey++;
-  }
-
+  let ey = y, em = m + 1;
+  if(em === 13){ em = 1; ey++; }
   const e = new Date(ey, em - 1, startDay, 12);
   e.setDate(e.getDate() - 1);
-
-  return {
-    tab:`${String(y).slice(-2)}/${pad(m)}/${pad(startDay)}`,
-    s,
-    e
-  };
+  return { tab:`${String(y).slice(-2)}/${pad(m)}/${pad(startDay)}`, s, e };
 }
-
-function fmtDate(d){
-  return `${d.getFullYear()}/${pad(d.getMonth()+1)}/${pad(d.getDate())}`;
-}
+function fmtDate(d){ return `${d.getFullYear()}/${pad(d.getMonth()+1)}/${pad(d.getDate())}`; }
 
 function updateCycle(){
   const bank = bankSel.value;
   const date = dateInp.value;
   const cfg = APP_CONFIG.banks[bank];
-
   cardField.classList.toggle('hidden', bank !== '中信');
-
   if(cfg && cfg.cycleStartDay){
     const c = getCycle(cfg.cycleStartDay, date);
     cycleTitle.textContent = `${bank}｜${c.tab}`;
@@ -84,37 +98,53 @@ function updateCycle(){
   }
 }
 
+function setSyncInfo(text, isError = false){
+  let el = document.getElementById('syncInfo');
+  if(!el){
+    el = document.createElement('div');
+    el.id = 'syncInfo';
+    el.style.cssText = 'font-size:12px;margin:0 0 10px;padding:10px 12px;border-radius:12px;background:#eef8ff;color:#49718a;border:1px solid #cfe8f5;';
+    const summary = document.querySelector('#recordsPage .summary');
+    summary.parentNode.insertBefore(el, summary);
+  }
+  el.textContent = text;
+  if(isError){ el.style.background = '#fff2f2'; el.style.color = '#a34f4f'; el.style.borderColor = '#efcccc'; }
+}
+
 async function loadRecords(){
   recordList.innerHTML = '<div class="empty">正在讀取 Google Sheet 資料…</div>';
   pendingList.innerHTML = '<div class="empty">正在讀取 Google Sheet 資料…</div>';
+  setSyncInfo('正在連接 Google Sheet…');
 
   try{
     const year = new Date().getFullYear();
-    const response = await fetch(`${API_URL}?action=records&year=${year}`, { cache: 'no-store' });
+    const response = await fetch(`${API_URL}?action=records&year=${year}&_=${Date.now()}`, { cache: 'no-store' });
     if(!response.ok) throw new Error(`HTTP ${response.status}`);
-
     const data = await response.json();
     if(!data.ok) throw new Error(data.error || 'GAS 回傳失敗');
 
-    records = (data.records || []).map((r, index) => ({
+    records = (Array.isArray(data.records) ? data.records : []).map((r, index) => ({
       id: index + 1,
       bank: r.bank || '',
       card: r.card || '',
-      date: r.date || '',
+      date: normalizeClientDate(r.date || ''),
       item: r.item || '',
-      twd: r.twd,
+      twd: r.twd === '' || r.twd === undefined ? null : r.twd,
       currency: r.foreignCurrency || '',
-      foreign: r.foreignAmount,
+      foreign: r.foreignAmount === '' || r.foreignAmount === undefined ? null : r.foreignAmount,
       status: r.status || '',
       note: r.note || '',
       source: r.source || null
     }));
 
+    const validDates = records.filter(r => monthKey(r.date)).length;
+    setSyncInfo(`已連接 Google Sheet：抓到 ${records.length} 筆，其中 ${validDates} 筆日期可辨識`);
     buildMonthTabs();
     renderRecords();
     renderPending();
   }catch(err){
-    console.error(err);
+    console.error('loadRecords error:', err);
+    setSyncInfo(`讀取失敗：${err.message}`, true);
     const message = `<div class="empty">目前無法讀取 Google Sheet。<br><small>${esc(err.message)}</small></div>`;
     recordList.innerHTML = message;
     pendingList.innerHTML = message;
@@ -122,276 +152,111 @@ async function loadRecords(){
 }
 
 async function postToApi(payload){
-  const response = await fetch(API_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-    body: JSON.stringify(payload)
-  });
-
+  const response = await fetch(API_URL, { method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'}, body:JSON.stringify(payload) });
   if(!response.ok) throw new Error(`HTTP ${response.status}`);
   const data = await response.json();
   if(!data.ok) throw new Error(data.error || 'GAS 寫入失敗');
   return data;
 }
 
-bankSel.onchange = updateCycle;
-dateInp.onchange = updateCycle;
-
-foreignLine.onclick = () => {
+bankSel.addEventListener('change', updateCycle);
+dateInp.addEventListener('change', updateCycle);
+foreignLine.addEventListener('click', () => {
   foreignToggle.classList.toggle('on');
   foreignFields.classList.toggle('hidden', !foreignToggle.classList.contains('on'));
-};
+});
+saveBtn.addEventListener('click', () => alert('目前已先接上 Google Sheet 讀取；新增寫回 Sheet 會在下一步接上。'));
 
-saveBtn.onclick = () => {
-  alert('目前已先接上 Google Sheet 讀取；新增寫回 Sheet 會在下一步接上。');
-};
-
-document.querySelectorAll('.nav button').forEach(btn => btn.onclick = () => {
+document.querySelectorAll('.nav button').forEach(btn => btn.addEventListener('click', () => {
   document.querySelectorAll('.nav button').forEach(x => x.classList.remove('active'));
   btn.classList.add('active');
   document.querySelectorAll('.page').forEach(x => x.classList.remove('active'));
   document.getElementById(btn.dataset.page).classList.add('active');
-
-  if(btn.dataset.page === 'recordsPage'){
-    renderReminders();
-    renderRecords();
-  }
-
-  if(btn.dataset.page === 'pendingPage'){
-    renderPending();
-  }
-
+  if(btn.dataset.page === 'recordsPage'){ renderReminders(); renderRecords(); }
+  if(btn.dataset.page === 'pendingPage') renderPending();
   window.scrollTo({top:0, behavior:'smooth'});
-});
+}));
 
-document.querySelectorAll('#bankTabs .chip').forEach(btn => btn.onclick = () => {
+document.querySelectorAll('#bankTabs .chip').forEach(btn => btn.addEventListener('click', () => {
   document.querySelectorAll('#bankTabs .chip').forEach(x => x.classList.remove('active'));
-  btn.classList.add('active');
-  bankFilter = btn.dataset.bank;
-  renderRecords();
-});
-
-searchInp.oninput = renderRecords;
+  btn.classList.add('active'); bankFilter = btn.dataset.bank; renderRecords();
+}));
+searchInp.addEventListener('input', renderRecords);
 
 function buildMonthTabs(){
   const months = [...new Set(records.map(r => monthKey(r.date)).filter(Boolean))].sort().reverse();
-
-  if(!currentMonth || !months.includes(currentMonth)){
-    currentMonth = months[0] || '';
-  }
-
-  monthTabs.innerHTML = months.map(m =>
-    `<button class="chip ${m === currentMonth ? 'active' : ''}" data-m="${m}">${Number(m.slice(5))}月</button>`
-  ).join('');
-
-  monthTabs.querySelectorAll('.chip').forEach(btn => btn.onclick = () => {
-    currentMonth = btn.dataset.m;
-    buildMonthTabs();
-    renderRecords();
-  });
+  if(!currentMonth || !months.includes(currentMonth)) currentMonth = months[0] || '';
+  monthTabs.innerHTML = months.map(m => `<button class="chip ${m===currentMonth?'active':''}" data-m="${m}">${Number(m.slice(5))}月</button>`).join('');
+  monthTabs.querySelectorAll('.chip').forEach(btn => btn.addEventListener('click', () => { currentMonth = btn.dataset.m; buildMonthTabs(); renderRecords(); }));
 }
 
 function renderRecords(){
   if(!records.length){
-    countVal.textContent = '0';
-    totalVal.textContent = 'NT$0';
-    recordList.innerHTML = '<div class="empty">目前沒有讀到紀錄</div>';
-    return;
+    countVal.textContent='0'; totalVal.textContent='NT$0';
+    recordList.innerHTML='<div class="empty">目前沒有讀到紀錄</div>'; return;
   }
-
   const q = searchInp.value.trim().toLowerCase();
-
-  let list = records.filter(r =>
-    monthKey(r.date) === currentMonth &&
-    (bankFilter === '全部' || r.bank === bankFilter)
-  );
-
-  if(q){
-    list = list.filter(r => (r.item + ' ' + r.note + ' ' + r.card).toLowerCase().includes(q));
-  }
-
+  let list = records.filter(r => monthKey(r.date) === currentMonth && (bankFilter === '全部' || r.bank === bankFilter));
+  if(q) list = list.filter(r => (`${r.item} ${r.note} ${r.card}`).toLowerCase().includes(q));
   countVal.textContent = list.length;
-  totalVal.textContent = 'NT$' + list.reduce((s, r) => s + (Number(r.twd) || 0), 0).toLocaleString();
-
-  if(!list.length){
-    recordList.innerHTML = '<div class="empty">這個條件下沒有紀錄</div>';
-    return;
-  }
-
+  totalVal.textContent = 'NT$' + list.reduce((s,r)=>s+(Number(r.twd)||0),0).toLocaleString();
+  if(!list.length){ recordList.innerHTML=`<div class="empty">這個條件下沒有紀錄<br><small>目前月份：${esc(currentMonth || '無')}</small></div>`; return; }
   recordList.innerHTML = list.map(r => `
     <div class="record ${bankClass(r.bank)}">
-      <div class="rtop">
-        <div>
-          <div class="date">${esc(r.date)}</div>
-          <div class="item">${esc(r.item)}</div>
-        </div>
-        <div class="bank">${esc(r.bank)}${r.card ? '・' + esc(r.card) : ''}</div>
-      </div>
+      <div class="rtop"><div><div class="date">${esc(r.date)}</div><div class="item">${esc(r.item)}</div></div><div class="bank">${esc(r.bank)}${r.card?'・'+esc(r.card):''}</div></div>
       <div class="money">${fmtMoney(r.twd)}</div>
       ${r.foreign ? `<div class="meta">${esc(r.currency)} ${Number(r.foreign).toLocaleString()}</div>` : ''}
       ${r.note ? `<div class="meta">備註：${esc(r.note)}</div>` : ''}
-      <div class="rfoot">
-        <span class="status">${esc(r.status || '刷')}</span>
-        <div class="actions">
-          <button class="mini edit" onclick="openEdit(${r.id})">修改</button>
-          <button class="mini del" onclick="deleteRec(${r.id})">刪除</button>
-        </div>
-      </div>
-    </div>
-  `).join('');
+      <div class="rfoot"><span class="status">${esc(r.status || '刷')}</span><div class="actions"><button class="mini edit" onclick="openEdit(${r.id})">修改</button><button class="mini del" onclick="deleteRec(${r.id})">刪除</button></div></div>
+    </div>`).join('');
 }
 
 function renderPending(){
-  const list = records.filter(r => r.foreign && !r.twd);
-
-  if(!list.length){
-    pendingList.innerHTML = '<div class="empty">目前沒有待補台幣金額</div>';
-    return;
-  }
-
-  pendingList.innerHTML = list.map(r => `
-    <div class="record ${bankClass(r.bank)}">
-      <div class="date">${esc(r.date)}</div>
-      <div class="item">${esc(r.item)}</div>
-      <div class="money">${esc(r.currency)} ${Number(r.foreign).toLocaleString()}</div>
-      <div class="meta">${esc(r.bank)}・待補台幣</div>
-      <div class="rfoot">
-        <span class="status">待補</span>
-        <button class="mini edit" onclick="openEdit(${r.id})">補金額</button>
-      </div>
-    </div>
-  `).join('');
+  const list = records.filter(r => Number(r.foreign) > 0 && !(Number(r.twd) > 0));
+  if(!list.length){ pendingList.innerHTML='<div class="empty">目前沒有待補台幣金額</div>'; return; }
+  pendingList.innerHTML = list.map(r => `<div class="record ${bankClass(r.bank)}"><div class="date">${esc(r.date)}</div><div class="item">${esc(r.item)}</div><div class="money">${esc(r.currency)} ${Number(r.foreign).toLocaleString()}</div><div class="meta">${esc(r.bank)}・待補台幣</div><div class="rfoot"><span class="status">待補</span><button class="mini edit" onclick="openEdit(${r.id})">補金額</button></div></div>`).join('');
 }
 
 function openEdit(id){
-  const r = records.find(x => x.id === id);
-  if(!r) return;
-
-  editId.value = r.id;
-  editBank.value = r.bank;
-  editCard.value = r.card || '';
-  editDate.value = r.date;
-  editStatus.value = r.status || '刷';
-  editItem.value = r.item;
-  editTwd.value = r.twd ?? '';
-  editCurrency.value = r.currency || '';
-  editForeign.value = r.foreign ?? '';
-  editNote.value = r.note || '';
-  editModal.classList.add('show');
+  const r=records.find(x=>x.id===id); if(!r) return;
+  editId.value=r.id; editBank.value=r.bank; editCard.value=r.card||''; editDate.value=r.date; editStatus.value=r.status||'刷'; editItem.value=r.item; editTwd.value=r.twd??''; editCurrency.value=r.currency||''; editForeign.value=r.foreign??''; editNote.value=r.note||''; editModal.classList.add('show');
 }
+closeEdit.addEventListener('click',()=>editModal.classList.remove('show'));
+editModal.addEventListener('click',e=>{ if(e.target===editModal) editModal.classList.remove('show'); });
 
-closeEdit.onclick = () => editModal.classList.remove('show');
-
-editModal.onclick = e => {
-  if(e.target === editModal){
-    editModal.classList.remove('show');
-  }
-};
-
-modalSave.onclick = async () => {
-  const id = Number(editId.value);
-  const r = records.find(x => x.id === id);
-  if(!r || !r.source) return;
-
-  const updated = {
-    ...r,
-    bank: editBank.value,
-    card: editBank.value === '中信' ? editCard.value.trim() : '',
-    date: editDate.value,
-    status: editStatus.value,
-    item: editItem.value.trim(),
-    twd: editTwd.value ? Number(editTwd.value) : null,
-    currency: editCurrency.value,
-    foreign: editForeign.value ? Number(editForeign.value) : null,
-    note: editNote.value.trim(),
-    foreignAmount: editForeign.value ? Number(editForeign.value) : null
-  };
-
-  try{
-    modalSave.disabled = true;
-    modalSave.textContent = '儲存中…';
-    await postToApi({ action: 'updateRecord', record: updated });
-    editModal.classList.remove('show');
-    await loadRecords();
-  }catch(err){
-    alert('修改失敗：' + err.message);
-  }finally{
-    modalSave.disabled = false;
-    modalSave.textContent = '儲存修改';
-  }
-};
-
-async function deleteRec(id){
-  const r = records.find(x => x.id === id);
-  if(!r || !r.source) return;
-  if(!confirm('確定刪除這筆紀錄？這會直接刪除 Google Sheet 原資料。')) return;
-
-  try{
-    await postToApi({ action: 'deleteRecord', source: r.source });
-    await loadRecords();
-  }catch(err){
-    alert('刪除失敗：' + err.message);
-  }
-}
-
-modalDelete.onclick = () => {
-  const id = Number(editId.value);
-  editModal.classList.remove('show');
-  deleteRec(id);
-};
-
-function renderReminders(){
-  const now = new Date();
-  const y = now.getFullYear();
-  const m = now.getMonth() + 1;
-  const d = now.getDate();
-  let cards = [];
-  let future = [];
-
-  Object.entries(APP_CONFIG.banks).forEach(([bank, cfg]) => {
-    const due = cfg.paymentDueDay;
-    if(!due) return;
-
-    const key = `${bank}-${y}-${pad(m)}`;
-    if(paid[key]) return;
-
-    if(d >= due - 1){
-      const label = d === due - 1 ? '明天要繳費' : d === due ? '今天到期' : `已逾期 ${d - due} 天`;
-
-      cards.push(`
-        <div class="remind ${d >= due ? 'due' : ''}">
-          <div class="remTop">
-            <div>
-              <div class="remTitle">${bank}信用卡繳費提醒</div>
-              <div class="remMeta">本月繳費期限：${m}/${due}</div>
-            </div>
-            <div class="tag">${label}</div>
-          </div>
-          <button class="donePay" onclick="markPaid('${bank}',${y},${m})">完成繳費</button>
-        </div>
-      `);
-    }else{
-      future.push(`${bank}：${m}/${due - 1} 開始提醒，${m}/${due} 到期`);
-    }
-  });
-
-  reminders.innerHTML = cards.join('');
-  nextInfo.innerHTML = future.length
-    ? future.join('<br>')
-    : (cards.length ? '台新、富邦繳費日待確認後再加入。' : '本月目前沒有待繳提醒');
-}
-
-function markPaid(bank, y, m){
-  paid[`${bank}-${y}-${pad(m)}`] = true;
-  persistPaid();
-  renderReminders();
-}
-
-window.addEventListener('scroll', () => {
-  topBtn.classList.toggle('show', window.scrollY > 420);
+modalSave.addEventListener('click', async()=>{
+  const id=Number(editId.value), r=records.find(x=>x.id===id); if(!r||!r.source) return;
+  const updated={...r,bank:editBank.value,card:editBank.value==='中信'?editCard.value.trim():'',date:editDate.value,status:editStatus.value,item:editItem.value.trim(),twd:editTwd.value?Number(editTwd.value):null,currency:editCurrency.value,foreign:editForeign.value?Number(editForeign.value):null,note:editNote.value.trim(),foreignAmount:editForeign.value?Number(editForeign.value):null};
+  try{ modalSave.disabled=true; modalSave.textContent='儲存中…'; await postToApi({action:'updateRecord',record:updated}); editModal.classList.remove('show'); await loadRecords(); }
+  catch(err){ alert('修改失敗：'+err.message); }
+  finally{ modalSave.disabled=false; modalSave.textContent='儲存修改'; }
 });
 
-topBtn.onclick = () => window.scrollTo({top:0, behavior:'smooth'});
+async function deleteRec(id){
+  const r=records.find(x=>x.id===id); if(!r||!r.source) return;
+  if(!confirm('確定刪除這筆紀錄？這會直接刪除 Google Sheet 原資料。')) return;
+  try{ await postToApi({action:'deleteRecord',source:r.source}); await loadRecords(); }
+  catch(err){ alert('刪除失敗：'+err.message); }
+}
+modalDelete.addEventListener('click',()=>{ const id=Number(editId.value); editModal.classList.remove('show'); deleteRec(id); });
+
+function renderReminders(){
+  const now=new Date(), y=now.getFullYear(), m=now.getMonth()+1, d=now.getDate();
+  let cards=[], future=[];
+  Object.entries(APP_CONFIG.banks).forEach(([bank,cfg])=>{
+    const due=cfg.paymentDueDay; if(!due) return;
+    const key=`${bank}-${y}-${pad(m)}`; if(paid[key]) return;
+    if(d>=due-1){
+      const label=d===due-1?'明天要繳費':d===due?'今天到期':`已逾期 ${d-due} 天`;
+      cards.push(`<div class="remind ${d>=due?'due':''}"><div class="remTop"><div><div class="remTitle">${bank}信用卡繳費提醒</div><div class="remMeta">本月繳費期限：${m}/${due}</div></div><div class="tag">${label}</div></div><button class="donePay" onclick="markPaid('${bank}',${y},${m})">完成繳費</button></div>`);
+    } else future.push(`${bank}：${m}/${due-1} 開始提醒，${m}/${due} 到期`);
+  });
+  reminders.innerHTML=cards.join('');
+  nextInfo.innerHTML=future.length?future.join('<br>'):(cards.length?'台新、富邦繳費日待確認後再加入。':'本月目前沒有待繳提醒');
+}
+function markPaid(bank,y,m){ paid[`${bank}-${y}-${pad(m)}`]=true; persistPaid(); renderReminders(); }
+window.addEventListener('scroll',()=>topBtn.classList.toggle('show',window.scrollY>420));
+topBtn.addEventListener('click',()=>window.scrollTo({top:0,behavior:'smooth'}));
 
 updateCycle();
 renderReminders();
