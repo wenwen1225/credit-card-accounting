@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>信用卡記帳</title>
-  <link rel="stylesheet" href="css/style.css?v=20261017-0018">
+  <link rel="stylesheet" href="css/style.css?v=20261017-0030">
 </head>
 <body>
   <div class="app">
@@ -64,25 +64,26 @@
       <div class="section-label">月份</div><div id="monthTabs" class="tabs"></div>
       <div class="legend"><span class="l-ctbc">中信</span><span class="l-cathay">國泰</span><span class="l-taishin">台新</span><span class="l-fubon">富邦</span></div>
       <div id="bankTabs" class="tabs"><button class="chip active" data-bank="全部">全部銀行</button><button class="chip" data-bank="中信">中信</button><button class="chip" data-bank="國泰">國泰</button><button class="chip" data-bank="台新">台新</button><button class="chip" data-bank="富邦">富邦</button></div>
+      <div id="recordStateTabs" class="tabs compact-tabs"><button class="chip active" data-state="all">全部紀錄</button><button class="chip" data-state="pending">待補金額</button></div>
       <div class="field"><input id="searchInp" placeholder="搜尋項目、備註、卡別"></div>
       <div id="recordList"><div class="empty">正在讀取 Google Sheet 資料…</div></div>
+      <div id="pendingList" class="hidden"></div>
     </section>
-
-    <section id="pendingPage" class="page"><div class="box"><h2>待處理</h2><div class="sub pending-note">這裡會列出「有外幣金額、但還沒有台幣金額」的紀錄。</div><div id="pendingList"><div class="empty">正在讀取 Google Sheet 資料…</div></div></div></section>
   </div>
 
   <button id="topBtn" class="topBtn">↑</button>
-  <nav class="nav"><button class="active" data-page="addPage"><span class="ico">＋</span>新增</button><button data-page="recordsPage"><span class="ico">▤</span>紀錄</button><button data-page="pendingPage"><span class="ico">◷</span>待處理</button></nav>
+  <nav class="nav"><button class="active" data-page="addPage"><span class="ico">＋</span>新增</button><button data-page="recordsPage"><span class="ico">▤</span>紀錄</button></nav>
 
   <div id="editModal" class="modal"><div class="sheet"><div class="sheetHead"><h3>修改刷卡紀錄</h3><button id="closeEdit" class="close">✕</button></div><input id="editId" type="hidden"><div class="field"><label>銀行</label><select id="editBank"><option>中信</option><option>國泰</option><option>台新</option><option>富邦</option></select></div><div class="field"><label>卡別</label><input id="editCard"></div><div class="row"><div class="field"><label>日期</label><input id="editDate" type="date"></div><div class="field"><label>進度</label><select id="editStatus"><option>刷</option><option>繳</option></select></div></div><div class="field"><label>項目</label><input id="editItem"></div><div class="field"><label>台幣金額</label><input id="editTwd" type="number"></div><div class="row"><div class="field"><label>幣別</label><select id="editCurrency"><option value="">無</option><option>KRW</option><option>JPY</option><option>USD</option><option>EUR</option></select></div><div class="field"><label>外幣金額</label><input id="editForeign" type="number"></div></div><div class="field"><label>備註</label><textarea id="editNote"></textarea></div><div class="row"><button id="modalDelete" class="btn danger">刪除</button><button id="modalSave" class="btn primary">儲存修改</button></div></div></div>
 
-  <script src="js/config.js?v=20261017-0018"></script>
-  <script src="js/date-select.js?v=20261017-0018"></script>
-  <script src="js/app.js?v=20261017-0018"></script>
-  <script src="js/data-sync.js?v=20261017-0018"></script>
-  <script src="js/year-view.js?v=20261017-0018"></script>
-  <script src="js/billing-current.js?v=20261017-0018"></script>
-  <script src="js/transaction-type.js?v=20261017-0018"></script>
-  <script src="js/version-check.js?v=20261017-0018"></script>
+  <script src="js/config.js?v=20261017-0030"></script>
+  <script src="js/date-select.js?v=20261017-0030"></script>
+  <script src="js/app.js?v=20261017-0030"></script>
+  <script src="js/data-sync.js?v=20261017-0030"></script>
+  <script src="js/year-view.js?v=20261017-0030"></script>
+  <script src="js/billing-current.js?v=20261017-0030"></script>
+  <script src="js/transaction-type.js?v=20261017-0030"></script>
+  <script src="js/record-filter.js?v=20261017-0030"></script>
+  <script src="js/version-check.js?v=20261017-0030"></script>
 </body>
 </html>
