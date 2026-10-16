@@ -1,14 +1,39 @@
-// 紀錄月份顯示與年度視圖
-// app.js 負責資料與互動；這裡只處理「年份＋月份」顯示與初始化。
+// 紀錄年份 / 月份分離顯示
+// app.js 負責資料與互動；這裡覆寫月份列，改成「年份一排、月份一排」。
+
+let currentYear = '';
 
 buildMonthTabs = function(){
-  const months = [...new Set(records.map(r => monthKey(r.date)).filter(Boolean))].sort().reverse();
-  if(!currentMonth || !months.includes(currentMonth)) currentMonth = months[0] || '';
+  const monthKeys = [...new Set(records.map(r => monthKey(r.date)).filter(Boolean))].sort().reverse();
+  const years = [...new Set(monthKeys.map(m => m.slice(0, 4)))].sort().reverse();
 
-  monthTabs.innerHTML = months.map(m => {
-    const [year, month] = m.split('-');
-    const label = `${year}年${Number(month)}月`;
-    return `<button class="chip ${m === currentMonth ? 'active' : ''}" data-m="${m}">${label}</button>`;
+  if(!currentYear || !years.includes(currentYear)){
+    currentYear = currentMonth ? currentMonth.slice(0, 4) : (years[0] || '');
+  }
+
+  const monthsInYear = monthKeys.filter(m => m.startsWith(`${currentYear}-`));
+  if(!currentMonth || !monthsInYear.includes(currentMonth)){
+    currentMonth = monthsInYear[0] || '';
+  }
+
+  const yearTabs = document.getElementById('yearTabs');
+  if(yearTabs){
+    yearTabs.innerHTML = years.map(year =>
+      `<button class="chip ${year === currentYear ? 'active' : ''}" data-y="${year}">${year}年</button>`
+    ).join('');
+
+    yearTabs.querySelectorAll('.chip').forEach(btn => btn.addEventListener('click', () => {
+      currentYear = btn.dataset.y;
+      const latestMonth = monthKeys.find(m => m.startsWith(`${currentYear}-`));
+      currentMonth = latestMonth || '';
+      buildMonthTabs();
+      renderRecords();
+    }));
+  }
+
+  monthTabs.innerHTML = monthsInYear.map(m => {
+    const month = Number(m.slice(5));
+    return `<button class="chip ${m === currentMonth ? 'active' : ''}" data-m="${m}">${month}月</button>`;
   }).join('');
 
   monthTabs.querySelectorAll('.chip').forEach(btn => btn.addEventListener('click', () => {
@@ -18,7 +43,7 @@ buildMonthTabs = function(){
   }));
 };
 
-// 進站時確保使用最新 Sheet 資料。
+// 進站時讀取最新 Sheet 資料。
 loadRecords();
 updateCycle();
 renderReminders();
