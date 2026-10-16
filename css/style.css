@@ -35,6 +35,16 @@ textarea{min-height:78px;resize:vertical}
 .foreign-title{font-size:14px}
 .pending-note{margin-bottom:12px}
 
+.version-card{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:10px;padding:9px 10px;border:1px solid var(--line);border-radius:14px;background:rgba(255,255,255,.88)}
+.version-line{display:flex;align-items:center;gap:6px}
+.version-state{display:inline-flex;align-items:center;border-radius:999px;padding:4px 8px;font-size:10px;font-weight:900}
+.version-state.checking{background:#edf5fa;color:#668297}
+.version-state.ok{background:#e9f7ef;color:#4b7a61}
+.version-state.mismatch,.version-state.error{background:#fff0f1;color:#a6525e}
+.version-detail{margin-top:3px;font-size:10px;color:var(--muted)}
+.version-btn{flex:none;border:1px solid var(--line);border-radius:10px;background:#f5fbff;color:#5688a8;padding:7px 9px;font-size:10px;font-weight:900}
+.version-btn:disabled{opacity:.6}
+
 .toggleLine{display:flex;align-items:center;gap:10px;border:1px solid var(--line);border-radius:14px;padding:12px;background:#f8fcff}
 .toggle{width:44px;height:26px;border-radius:999px;background:#cfe4ef;position:relative;flex:none}
 .toggle:after{content:"";position:absolute;width:20px;height:20px;left:3px;top:3px;border-radius:50%;background:#fff;transition:.2s;box-shadow:0 2px 5px rgba(0,0,0,.12)}
@@ -50,10 +60,12 @@ textarea{min-height:78px;resize:vertical}
 .sum{background:#fff;border:1px solid var(--line);border-radius:17px;padding:13px}
 .sum small{color:var(--muted);font-size:11px}
 .sum strong{display:block;font-size:20px;margin-top:4px}
-.tabs{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;margin-bottom:10px}
+.tabs{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;margin-bottom:10px;padding-bottom:1px}
 .tabs::-webkit-scrollbar{display:none}
 .chip{border:1px solid var(--line);background:#fff;color:#658399;border-radius:999px;padding:9px 12px;font-size:12px;font-weight:900;white-space:nowrap}
 .chip.active{background:var(--accent);border-color:var(--accent);color:#fff}
+#yearTabs .chip{min-width:78px;text-align:center}
+#monthTabs .chip{min-width:58px;text-align:center}
 .legend{display:flex;gap:8px;overflow-x:auto;margin-bottom:10px}
 .legend span{font-size:11px;font-weight:800;padding:6px 9px;border-radius:999px;white-space:nowrap}
 .l-ctbc{background:#eaf4f9}
