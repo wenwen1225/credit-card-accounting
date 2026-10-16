@@ -1,6 +1,6 @@
-// 本月應繳 / 下期累積 / 延至下期
-// 目前只處理「最近一期已結帳」與「目前進行中的下一期」，完全不碰更早已繳清的歷史帳期。
-// 帳期調整先存在本機 localStorage；等後端更新時再改成雲端同步。
+// 月份帳務 / 未請款延後
+// 只處理現在這一期；更早已繳清的歷史資料完全不動。
+// 帳期調整暫存在 localStorage，等後端更新後再同步到雲端。
 
 const BILLING_OVERRIDE_KEY = 'cc_billing_cycle_overrides_v1';
 let billingOverrides = readBillingOverrides();
@@ -61,6 +61,19 @@ function rangeText(cycle){
   return `${fmtDate(cycle.s)}～${fmtDate(cycle.e)}`;
 }
 
+function monthLabelFromDate(d){
+  return `${d.getMonth()+1}月`;
+}
+
+function nextCalendarMonth(today){
+  return new Date(today.getFullYear(), today.getMonth()+1, 1, 12);
+}
+
+function isSameCalendarMonth(dateStr, target){
+  const d = parseLocalDate(dateStr);
+  return Boolean(d && d.getFullYear() === target.getFullYear() && d.getMonth() === target.getMonth());
+}
+
 function effectiveCycleState(record){
   return billingOverrides[recordStableKey(record)] === 'next' ? 'next' : 'current';
 }
@@ -80,7 +93,7 @@ function toggleBillingDetail(bank){
 function renderBillingOverview(){
   const root = document.getElementById('billingOverview');
   if(!root || !Array.isArray(records) || !records.length){
-    if(root) root.innerHTML = '<div class="empty">目前沒有可計算的帳期資料</div>';
+    if(root) root.innerHTML = '<div class="empty">目前沒有可計算的帳務資料</div>';
     return;
   }
 
@@ -88,17 +101,30 @@ function renderBillingOverview(){
   const cards = [];
 
   Object.entries(APP_CONFIG.banks).forEach(([bank, cfg]) => {
+    // 台新、富邦目前還沒有正式帳期規則：不虛構「本月應繳」，只顯示下一個月份。
     if(!cfg.cycleStartDay){
+      const currentMonthRecords = records.filter(r => r.bank === bank && isSameCalendarMonth(r.date, now));
+      const nextMonth = nextCalendarMonth(now);
+      const missing = currentMonthRecords.filter(r => !(Number(r.twd) > 0)).length;
+
       cards.push(`
-        <div class="billing-card billing-unknown">
-          <div class="billing-head"><strong>${esc(bank)}</strong><span>帳期待確認</span></div>
-          <div class="billing-note">等你確認結帳週期後，再加入本月應繳與下期累積。</div>
+        <div class="billing-card ${bankClass(bank)}">
+          <div class="billing-head">
+            <strong>${esc(bank)}</strong>
+            <span>帳期規則待確認</span>
+          </div>
+          <div class="billing-cycle-label">${monthLabelFromDate(nextMonth)}應繳（目前累積）</div>
+          <div class="billing-amount">${moneyText(sumTwd(currentMonthRecords))}</div>
+          ${missing ? `<div class="billing-warning">另有 ${missing} 筆尚未補台幣金額</div>` : ''}
+          <div class="billing-note">目前先以 ${now.getMonth()+1} 月已記錄交易估算；確認結帳日後再改成正式帳期。</div>
         </div>`);
       return;
     }
 
     const closedCycle = previousCycleForBank(cfg.cycleStartDay, now);
     const openCycle = activeCycleForBank(cfg.cycleStartDay, now);
+    const payableMonthLabel = monthLabelFromDate(closedCycle.e);
+    const accumulatingMonthLabel = monthLabelFromDate(openCycle.e);
 
     const closedRaw = records.filter(r => r.bank === bank && inDateRange(r.date, closedCycle.s, closedCycle.e));
     const openRaw = records.filter(r => r.bank === bank && inDateRange(r.date, openCycle.s, openCycle.e));
@@ -122,7 +148,7 @@ function renderBillingOverview(){
           </div>
           <div class="billing-row-right">
             <strong>${r.twd === null || r.twd === '' ? '待補' : moneyText(r.twd)}</strong>
-            <button type="button" class="billing-move-btn ${moved ? 'undo' : ''}" data-billing-key="${esc(key)}">${moved ? '移回本期' : '延至下期'}</button>
+            <button type="button" class="billing-move-btn ${moved ? 'undo' : ''}" data-billing-key="${esc(key)}">${moved ? `移回${payableMonthLabel}` : `延至${accumulatingMonthLabel}`}</button>
           </div>
         </div>`;
     }).join('');
@@ -133,23 +159,24 @@ function renderBillingOverview(){
           <strong>${esc(bank)}</strong>
           <span>${cfg.paymentDueDay ? `${now.getMonth()+1}/${cfg.paymentDueDay} 繳款` : '繳款日待確認'}</span>
         </div>
-        <div class="billing-cycle-label">本月應繳｜${rangeText(closedCycle)}</div>
+
+        <div class="billing-cycle-label">${payableMonthLabel}應繳｜${rangeText(closedCycle)}</div>
         <div class="billing-amount">${moneyText(sumTwd(payable))}</div>
         ${payableMissing ? `<div class="billing-warning">另有 ${payableMissing} 筆尚未補台幣金額</div>` : ''}
 
         <div class="billing-next-box">
-          <div><span>下期已累積</span><small>${rangeText(openCycle)}</small></div>
+          <div><span>${accumulatingMonthLabel}累積</span><small>${rangeText(openCycle)}</small></div>
           <strong>${moneyText(sumTwd(nextAccumulated))}</strong>
         </div>
-        ${nextMissing ? `<div class="billing-warning soft">下期另有 ${nextMissing} 筆尚未補台幣金額</div>` : ''}
-        ${deferred.length ? `<div class="billing-moved-note">已將 ${deferred.length} 筆未請款交易延至下期</div>` : ''}
+        ${nextMissing ? `<div class="billing-warning soft">${accumulatingMonthLabel}另有 ${nextMissing} 筆尚未補台幣金額</div>` : ''}
+        ${deferred.length ? `<div class="billing-moved-note">已有 ${deferred.length} 筆未請款交易移至${accumulatingMonthLabel}</div>` : ''}
 
         <button type="button" class="billing-detail-btn" data-billing-bank="${esc(bank)}">
-          ${isOpen ? '收起本期明細' : `檢查本期入帳（${closedRaw.length} 筆）`}
+          ${isOpen ? `收起${payableMonthLabel}明細` : `檢查${payableMonthLabel}入帳（${closedRaw.length} 筆）`}
         </button>
         <div class="billing-detail ${isOpen ? '' : 'hidden'}">
-          ${detailRows || '<div class="empty compact">本期沒有紀錄</div>'}
-          <div class="billing-help">只有目前最近一期可以調整；更早已繳清的歷史資料不會被改動。</div>
+          ${detailRows || `<div class="empty compact">${payableMonthLabel}沒有紀錄</div>`}
+          <div class="billing-help">只調整現在這一期；更早已繳清的歷史資料不會被改動。</div>
         </div>
       </div>`);
   });
@@ -164,12 +191,11 @@ function renderBillingOverview(){
   });
 }
 
-// 只在既有畫面 render 後補上帳期總覽，不改原本紀錄功能。
+// 只在既有畫面 render 後補上帳務總覽，不改原本紀錄功能。
 const originalRenderRecordsForBilling = renderRecords;
 renderRecords = function(){
   originalRenderRecordsForBilling();
   renderBillingOverview();
 };
 
-// 第一次若資料已經載入，也立即畫一次。
 renderBillingOverview();
