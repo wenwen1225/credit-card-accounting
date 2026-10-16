@@ -68,13 +68,13 @@ textarea{min-height:78px;resize:vertical}
 #monthTabs .chip{min-width:58px;text-align:center}
 .legend{display:flex;gap:8px;overflow-x:auto;margin-bottom:10px}
 .legend span{font-size:11px;font-weight:800;padding:6px 9px;border-radius:999px;white-space:nowrap}
-.l-ctbc{background:#eaf4f9}
+.l-ctbc{background:#e9effc;color:#526b9d}
 .l-cathay{background:#ebf8f0}
 .l-taishin{background:#fff0f0}
 .l-fubon{background:#fff7e4}
 
 .record{border:1px solid var(--line);border-radius:18px;padding:14px;margin-bottom:10px;background:#fff}
-.ctbc{background:#f1f8fb;border-color:#cfe5ee}
+.ctbc{background:#edf2ff;border-color:#c7d5f2}
 .cathay{background:#f1faf5;border-color:#cfe7d8}
 .taishin{background:#fff5f5;border-color:#efd4d4}
 .fubon{background:#fff9ec;border-color:#eddcaf}
