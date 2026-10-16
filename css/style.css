@@ -25,6 +25,8 @@ label{display:block;font-size:12px;font-weight:800;color:#5f7f96;margin-bottom:7
 input,select,textarea{width:100%;border:1px solid var(--line);border-radius:14px;padding:13px 14px;background:#fcfbff;color:var(--text);outline:none}
 textarea{min-height:78px;resize:vertical}
 .row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.date-select-row{display:grid;grid-template-columns:1.25fr 1fr 1fr;gap:8px}
+.date-select-row select{padding:13px 10px;text-align:center;text-align-last:center;background:#fff}
 .btn{border:0;border-radius:14px;padding:13px 14px;font-weight:900}
 .primary{width:100%;background:linear-gradient(135deg,#74b9e6,#9fd4f4);color:#fff}
 .danger{background:#fff0f2;color:#ae4d5d}
