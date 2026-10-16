@@ -104,6 +104,8 @@ textarea{min-height:78px;resize:vertical}
 .chip.active{background:var(--accent);border-color:var(--accent);color:#fff}
 #yearTabs .chip{min-width:78px;text-align:center}
 #monthTabs .chip{min-width:58px;text-align:center}
+.compact-tabs{margin-top:-2px;margin-bottom:12px}
+.compact-tabs .chip{padding:8px 11px}
 .legend{display:flex;gap:8px;overflow-x:auto;margin-bottom:10px}
 .legend span{font-size:11px;font-weight:800;padding:6px 9px;border-radius:999px;white-space:nowrap}
 .l-ctbc{background:#e9effc;color:#526b9d}
@@ -125,6 +127,7 @@ textarea{min-height:78px;resize:vertical}
 .money{font-size:19px;font-weight:900;margin-top:12px}
 .refund-money{color:#af5366}
 .meta{font-size:12px;color:var(--muted);margin-top:4px}
+.pending-inline{display:inline-block;margin-top:7px;padding:4px 7px;border-radius:999px;background:#fff2df;color:#9a6b27;font-size:10px;font-weight:900}
 .rfoot{display:flex;align-items:center;justify-content:space-between;margin-top:12px;padding-top:10px;border-top:1px solid rgba(0,0,0,.05)}
 .status{font-size:11px;font-weight:900;padding:5px 8px;border-radius:999px;background:#e9f6ef;color:#47725e}
 .status.refund-status{background:#ffe7ec;color:#a74f62}
@@ -144,7 +147,7 @@ textarea{min-height:78px;resize:vertical}
 .donePay{width:100%;margin-top:11px;border:0;border-radius:12px;padding:11px;background:var(--accent);color:#fff;font-weight:900}
 .nextInfo{font-size:12px;color:var(--muted);background:#fff;border:1px solid var(--line);border-radius:14px;padding:11px;margin-bottom:12px}
 
-.nav{position:fixed;left:50%;bottom:0;transform:translateX(-50%);width:min(100%,480px);display:grid;grid-template-columns:repeat(3,1fr);background:rgba(255,255,255,.96);border-top:1px solid var(--line);backdrop-filter:blur(12px);padding:8px 10px calc(8px + env(safe-area-inset-bottom));z-index:30}
+.nav{position:fixed;left:50%;bottom:0;transform:translateX(-50%);width:min(100%,480px);display:grid;grid-template-columns:repeat(2,1fr);background:rgba(255,255,255,.96);border-top:1px solid var(--line);backdrop-filter:blur(12px);padding:8px 10px calc(8px + env(safe-area-inset-bottom));z-index:30}
 .nav button{border:0;background:transparent;color:#8099aa;font-size:11px;font-weight:900;padding:7px}
 .nav button.active{color:#4f9fd4}
 .nav .ico{display:block;font-size:21px;margin-bottom:2px}
