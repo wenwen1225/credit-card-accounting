@@ -1,5 +1,5 @@
 const APP_CONFIG = {
-  apiUrl: 'https://script.google.com/macros/s/AKfycbzWYYRK-VLTixeEDPyKG2jA4--0VUcaXvi4HvXiOIYbp5kKbUMgylqqlrJA2JDDndCG7A/exec',
+  apiUrl: '/api/gas',
   storage: {
     paidKey: 'cc_demo_paid_v1'
   },
