@@ -1,8 +1,10 @@
 // 月份帳務 / 未請款延後
 // 只處理現在這一期；更早已繳清的歷史資料完全不動。
+// 金額優先依「實際所在 Sheet 分頁」計算，避免只看刷卡日期造成跨期錯算。
 // 帳期調整暫存在 localStorage，等後端更新後再同步到雲端。
 
-const BILLING_OVERRIDE_KEY = 'cc_billing_cycle_overrides_v1';
+// v2：忽略前一版可能留下的本機帳期調整，重新以 Sheet 為準。
+const BILLING_OVERRIDE_KEY = 'cc_billing_cycle_overrides_v2';
 let billingOverrides = readBillingOverrides();
 const billingDetailOpen = {};
 
@@ -61,17 +63,22 @@ function rangeText(cycle){
   return `${fmtDate(cycle.s)}～${fmtDate(cycle.e)}`;
 }
 
-function monthLabelFromDate(d){
-  return `${d.getMonth()+1}月`;
-}
-
-function nextCalendarMonth(today){
-  return new Date(today.getFullYear(), today.getMonth()+1, 1, 12);
+function monthLabelFromCycle(cycle){
+  return `${cycle.s.getMonth()+1}月`;
 }
 
 function isSameCalendarMonth(dateStr, target){
   const d = parseLocalDate(dateStr);
   return Boolean(d && d.getFullYear() === target.getFullYear() && d.getMonth() === target.getMonth());
+}
+
+function belongsToCycle(record, cycle){
+  const sourceSheet = String(record?.source?.sheetName || '').trim();
+  if(sourceSheet){
+    return sourceSheet === cycle.tab;
+  }
+  // 沒有來源分頁資訊時才退回刷卡日期判斷。
+  return inDateRange(record.date, cycle.s, cycle.e);
 }
 
 function effectiveCycleState(record){
@@ -101,11 +108,11 @@ function renderBillingOverview(){
   const cards = [];
 
   Object.entries(APP_CONFIG.banks).forEach(([bank, cfg]) => {
-    // 台新、富邦目前還沒有正式帳期規則：不虛構「本月應繳」，只顯示下一個月份。
+    // 台新、富邦目前沒有正式結帳規則；目前就是 10 月這批資料作為下一次應繳估算。
     if(!cfg.cycleStartDay){
       const currentMonthRecords = records.filter(r => r.bank === bank && isSameCalendarMonth(r.date, now));
-      const nextMonth = nextCalendarMonth(now);
       const missing = currentMonthRecords.filter(r => !(Number(r.twd) > 0)).length;
+      const label = `${now.getMonth()+1}月`;
 
       cards.push(`
         <div class="billing-card ${bankClass(bank)}">
@@ -113,21 +120,22 @@ function renderBillingOverview(){
             <strong>${esc(bank)}</strong>
             <span>帳期規則待確認</span>
           </div>
-          <div class="billing-cycle-label">${monthLabelFromDate(nextMonth)}應繳（目前累積）</div>
+          <div class="billing-cycle-label">${label}應繳（目前累積）</div>
           <div class="billing-amount">${moneyText(sumTwd(currentMonthRecords))}</div>
           ${missing ? `<div class="billing-warning">另有 ${missing} 筆尚未補台幣金額</div>` : ''}
-          <div class="billing-note">目前先以 ${now.getMonth()+1} 月已記錄交易估算；確認結帳日後再改成正式帳期。</div>
+          <div class="billing-note">目前先以 ${label} 已記錄交易估算；確認結帳日後再改成正式帳期。</div>
         </div>`);
       return;
     }
 
     const closedCycle = previousCycleForBank(cfg.cycleStartDay, now);
     const openCycle = activeCycleForBank(cfg.cycleStartDay, now);
-    const payableMonthLabel = monthLabelFromDate(closedCycle.e);
-    const accumulatingMonthLabel = monthLabelFromDate(openCycle.e);
+    const payableMonthLabel = monthLabelFromCycle(closedCycle);   // 例：9月應繳
+    const accumulatingMonthLabel = monthLabelFromCycle(openCycle); // 例：10月累積
 
-    const closedRaw = records.filter(r => r.bank === bank && inDateRange(r.date, closedCycle.s, closedCycle.e));
-    const openRaw = records.filter(r => r.bank === bank && inDateRange(r.date, openCycle.s, openCycle.e));
+    // 重要：以實際來源 Sheet 分頁為主，而不是只依刷卡日期。
+    const closedRaw = records.filter(r => r.bank === bank && belongsToCycle(r, closedCycle));
+    const openRaw = records.filter(r => r.bank === bank && belongsToCycle(r, openCycle));
 
     const deferred = closedRaw.filter(r => effectiveCycleState(r) === 'next');
     const payable = closedRaw.filter(r => effectiveCycleState(r) !== 'next');
@@ -176,7 +184,7 @@ function renderBillingOverview(){
         </button>
         <div class="billing-detail ${isOpen ? '' : 'hidden'}">
           ${detailRows || `<div class="empty compact">${payableMonthLabel}沒有紀錄</div>`}
-          <div class="billing-help">只調整現在這一期；更早已繳清的歷史資料不會被改動。</div>
+          <div class="billing-help">金額以實際 Sheet 分頁為準；歷史資料不會被修改。</div>
         </div>
       </div>`);
   });
@@ -191,7 +199,6 @@ function renderBillingOverview(){
   });
 }
 
-// 只在既有畫面 render 後補上帳務總覽，不改原本紀錄功能。
 const originalRenderRecordsForBilling = renderRecords;
 renderRecords = function(){
   originalRenderRecordsForBilling();
