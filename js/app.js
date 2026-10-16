@@ -1,15 +1,10 @@
-const LS_KEY = APP_CONFIG.storage.recordsKey;
 const PAY_KEY = APP_CONFIG.storage.paidKey;
-const initial = APP_CONFIG.seedRecords;
+const API_URL = APP_CONFIG.apiUrl;
 
-let records = JSON.parse(localStorage.getItem(LS_KEY) || 'null') || initial;
+let records = [];
 let paid = JSON.parse(localStorage.getItem(PAY_KEY) || '{}');
 let currentMonth = '';
 let bankFilter = '全部';
-
-function persist(){
-  localStorage.setItem(LS_KEY, JSON.stringify(records));
-}
 
 function persistPaid(){
   localStorage.setItem(PAY_KEY, JSON.stringify(paid));
@@ -89,6 +84,56 @@ function updateCycle(){
   }
 }
 
+async function loadRecords(){
+  recordList.innerHTML = '<div class="empty">正在讀取 Google Sheet 資料…</div>';
+  pendingList.innerHTML = '<div class="empty">正在讀取 Google Sheet 資料…</div>';
+
+  try{
+    const year = new Date().getFullYear();
+    const response = await fetch(`${API_URL}?action=records&year=${year}`, { cache: 'no-store' });
+    if(!response.ok) throw new Error(`HTTP ${response.status}`);
+
+    const data = await response.json();
+    if(!data.ok) throw new Error(data.error || 'GAS 回傳失敗');
+
+    records = (data.records || []).map((r, index) => ({
+      id: index + 1,
+      bank: r.bank || '',
+      card: r.card || '',
+      date: r.date || '',
+      item: r.item || '',
+      twd: r.twd,
+      currency: r.foreignCurrency || '',
+      foreign: r.foreignAmount,
+      status: r.status || '',
+      note: r.note || '',
+      source: r.source || null
+    }));
+
+    buildMonthTabs();
+    renderRecords();
+    renderPending();
+  }catch(err){
+    console.error(err);
+    const message = `<div class="empty">目前無法讀取 Google Sheet。<br><small>${esc(err.message)}</small></div>`;
+    recordList.innerHTML = message;
+    pendingList.innerHTML = message;
+  }
+}
+
+async function postToApi(payload){
+  const response = await fetch(API_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify(payload)
+  });
+
+  if(!response.ok) throw new Error(`HTTP ${response.status}`);
+  const data = await response.json();
+  if(!data.ok) throw new Error(data.error || 'GAS 寫入失敗');
+  return data;
+}
+
 bankSel.onchange = updateCycle;
 dateInp.onchange = updateCycle;
 
@@ -98,36 +143,7 @@ foreignLine.onclick = () => {
 };
 
 saveBtn.onclick = () => {
-  if(!itemInp.value.trim()){
-    alert('請先輸入項目');
-    return;
-  }
-
-  const isForeign = foreignToggle.classList.contains('on');
-
-  records.unshift({
-    id: Date.now(),
-    bank: bankSel.value,
-    card: bankSel.value === '中信' ? cardSel.value : '',
-    date: dateInp.value,
-    item: itemInp.value.trim(),
-    twd: twdInp.value ? Number(twdInp.value) : null,
-    currency: isForeign ? currencySel.value : '',
-    foreign: isForeign && foreignInp.value ? Number(foreignInp.value) : null,
-    status: statusSel.value,
-    note: noteInp.value.trim()
-  });
-
-  persist();
-  itemInp.value = '';
-  twdInp.value = '';
-  foreignInp.value = '';
-  noteInp.value = '';
-
-  alert('已儲存到這個瀏覽器的 Demo 資料');
-  buildMonthTabs();
-  renderRecords();
-  renderPending();
+  alert('目前已先接上 Google Sheet 讀取；新增寫回 Sheet 會在下一步接上。');
 };
 
 document.querySelectorAll('.nav button').forEach(btn => btn.onclick = () => {
@@ -176,6 +192,13 @@ function buildMonthTabs(){
 }
 
 function renderRecords(){
+  if(!records.length){
+    countVal.textContent = '0';
+    totalVal.textContent = 'NT$0';
+    recordList.innerHTML = '<div class="empty">目前沒有讀到紀錄</div>';
+    return;
+  }
+
   const q = searchInp.value.trim().toLowerCase();
 
   let list = records.filter(r =>
@@ -199,16 +222,16 @@ function renderRecords(){
     <div class="record ${bankClass(r.bank)}">
       <div class="rtop">
         <div>
-          <div class="date">${r.date}</div>
+          <div class="date">${esc(r.date)}</div>
           <div class="item">${esc(r.item)}</div>
         </div>
         <div class="bank">${esc(r.bank)}${r.card ? '・' + esc(r.card) : ''}</div>
       </div>
       <div class="money">${fmtMoney(r.twd)}</div>
-      ${r.foreign ? `<div class="meta">${r.currency} ${Number(r.foreign).toLocaleString()}</div>` : ''}
+      ${r.foreign ? `<div class="meta">${esc(r.currency)} ${Number(r.foreign).toLocaleString()}</div>` : ''}
       ${r.note ? `<div class="meta">備註：${esc(r.note)}</div>` : ''}
       <div class="rfoot">
-        <span class="status">${esc(r.status)}</span>
+        <span class="status">${esc(r.status || '刷')}</span>
         <div class="actions">
           <button class="mini edit" onclick="openEdit(${r.id})">修改</button>
           <button class="mini del" onclick="deleteRec(${r.id})">刪除</button>
@@ -228,10 +251,10 @@ function renderPending(){
 
   pendingList.innerHTML = list.map(r => `
     <div class="record ${bankClass(r.bank)}">
-      <div class="date">${r.date}</div>
+      <div class="date">${esc(r.date)}</div>
       <div class="item">${esc(r.item)}</div>
-      <div class="money">${r.currency} ${Number(r.foreign).toLocaleString()}</div>
-      <div class="meta">${r.bank}・待補台幣</div>
+      <div class="money">${esc(r.currency)} ${Number(r.foreign).toLocaleString()}</div>
+      <div class="meta">${esc(r.bank)}・待補台幣</div>
       <div class="rfoot">
         <span class="status">待補</span>
         <button class="mini edit" onclick="openEdit(${r.id})">補金額</button>
@@ -248,7 +271,7 @@ function openEdit(id){
   editBank.value = r.bank;
   editCard.value = r.card || '';
   editDate.value = r.date;
-  editStatus.value = r.status;
+  editStatus.value = r.status || '刷';
   editItem.value = r.item;
   editTwd.value = r.twd ?? '';
   editCurrency.value = r.currency || '';
@@ -265,36 +288,50 @@ editModal.onclick = e => {
   }
 };
 
-modalSave.onclick = () => {
+modalSave.onclick = async () => {
   const id = Number(editId.value);
   const r = records.find(x => x.id === id);
-  if(!r) return;
+  if(!r || !r.source) return;
 
-  r.bank = editBank.value;
-  r.card = editBank.value === '中信' ? editCard.value.trim() : '';
-  r.date = editDate.value;
-  r.status = editStatus.value;
-  r.item = editItem.value.trim();
-  r.twd = editTwd.value ? Number(editTwd.value) : null;
-  r.currency = editCurrency.value;
-  r.foreign = editForeign.value ? Number(editForeign.value) : null;
-  r.note = editNote.value.trim();
+  const updated = {
+    ...r,
+    bank: editBank.value,
+    card: editBank.value === '中信' ? editCard.value.trim() : '',
+    date: editDate.value,
+    status: editStatus.value,
+    item: editItem.value.trim(),
+    twd: editTwd.value ? Number(editTwd.value) : null,
+    currency: editCurrency.value,
+    foreign: editForeign.value ? Number(editForeign.value) : null,
+    note: editNote.value.trim(),
+    foreignAmount: editForeign.value ? Number(editForeign.value) : null
+  };
 
-  persist();
-  editModal.classList.remove('show');
-  buildMonthTabs();
-  renderRecords();
-  renderPending();
+  try{
+    modalSave.disabled = true;
+    modalSave.textContent = '儲存中…';
+    await postToApi({ action: 'updateRecord', record: updated });
+    editModal.classList.remove('show');
+    await loadRecords();
+  }catch(err){
+    alert('修改失敗：' + err.message);
+  }finally{
+    modalSave.disabled = false;
+    modalSave.textContent = '儲存修改';
+  }
 };
 
-function deleteRec(id){
-  if(!confirm('確定刪除這筆紀錄？')) return;
+async function deleteRec(id){
+  const r = records.find(x => x.id === id);
+  if(!r || !r.source) return;
+  if(!confirm('確定刪除這筆紀錄？這會直接刪除 Google Sheet 原資料。')) return;
 
-  records = records.filter(r => r.id !== id);
-  persist();
-  buildMonthTabs();
-  renderRecords();
-  renderPending();
+  try{
+    await postToApi({ action: 'deleteRecord', source: r.source });
+    await loadRecords();
+  }catch(err){
+    alert('刪除失敗：' + err.message);
+  }
 }
 
 modalDelete.onclick = () => {
@@ -357,7 +394,5 @@ window.addEventListener('scroll', () => {
 topBtn.onclick = () => window.scrollTo({top:0, behavior:'smooth'});
 
 updateCycle();
-buildMonthTabs();
 renderReminders();
-renderRecords();
-renderPending();
+loadRecords();
