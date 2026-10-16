@@ -1,11 +1,12 @@
 const APP_CONFIG = {
   apiUrl: '/api/gas',
   version: {
-    frontend: '2026.10.16-v1',
-    expectedBackend: '0.1'
+    frontend: '2026.10.16-v2',
+    expectedBackend: '0.2'
   },
   storage: {
-    paidKey: 'cc_demo_paid_v1'
+    paidKey: 'cc_demo_paid_v1',
+    recordsCacheKey: 'cc_sheet_records_cache_v1'
   },
   banks: {
     '中信': {
