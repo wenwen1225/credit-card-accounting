@@ -1,5 +1,11 @@
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbzWYYRK-VLTixeEDPyKG2jA4--0VUcaXvi4HvXiOIYbp5kKbUMgylqqlrJA2JDDndCG7A/exec';
 
+function getRecordYear(value) {
+  if (!value) return null;
+  const match = String(value).trim().match(/^(\d{4})[-\/]/);
+  return match ? Number(match[1]) : null;
+}
+
 module.exports = async function handler(req, res) {
   try {
     let response;
@@ -20,7 +26,41 @@ module.exports = async function handler(req, res) {
         redirect: 'follow',
         cache: 'no-store'
       });
-    } else if (req.method === 'POST') {
+
+      const text = await response.text();
+      const action = String(req.query?.action || '');
+      const requestedYear = Number(req.query?.year || 0);
+
+      if (response.ok && action === 'records' && requestedYear) {
+        try {
+          const data = JSON.parse(text);
+          if (data.ok && Array.isArray(data.records)) {
+            const before = data.records.length;
+            data.records = data.records.filter(record => getRecordYear(record?.date) === requestedYear);
+            data.meta = {
+              ...(data.meta || {}),
+              requestedYear,
+              sourceRecordCount: before,
+              returnedRecordCount: data.records.length
+            };
+          }
+
+          res.status(response.status);
+          res.setHeader('Content-Type', 'application/json; charset=utf-8');
+          res.setHeader('Cache-Control', 'no-store');
+          return res.send(JSON.stringify(data));
+        } catch (_) {
+          // 若 GAS 回傳不是 JSON，保留原始內容，方便前端顯示錯誤。
+        }
+      }
+
+      res.status(response.status);
+      res.setHeader('Content-Type', 'application/json; charset=utf-8');
+      res.setHeader('Cache-Control', 'no-store');
+      return res.send(text);
+    }
+
+    if (req.method === 'POST') {
       const body = typeof req.body === 'string'
         ? req.body
         : JSON.stringify(req.body || {});
@@ -33,16 +73,16 @@ module.exports = async function handler(req, res) {
         body,
         redirect: 'follow'
       });
-    } else {
-      res.setHeader('Allow', ['GET', 'POST']);
-      return res.status(405).json({ ok: false, error: 'Method not allowed' });
+
+      const text = await response.text();
+      res.status(response.status);
+      res.setHeader('Content-Type', 'application/json; charset=utf-8');
+      res.setHeader('Cache-Control', 'no-store');
+      return res.send(text);
     }
 
-    const text = await response.text();
-    res.status(response.status);
-    res.setHeader('Content-Type', 'application/json; charset=utf-8');
-    res.setHeader('Cache-Control', 'no-store');
-    return res.send(text);
+    res.setHeader('Allow', ['GET', 'POST']);
+    return res.status(405).json({ ok: false, error: 'Method not allowed' });
   } catch (error) {
     return res.status(500).json({
       ok: false,
