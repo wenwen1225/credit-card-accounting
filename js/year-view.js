@@ -8,7 +8,7 @@ buildMonthTabs = function(){
   const years = [...new Set([...monthKeys.map(m => m.slice(0, 4)), ...(typeof ccAvailableYears !== 'undefined' ? ccAvailableYears.map(String) : [])])].sort().reverse();
 
   if(!currentYear || !years.includes(currentYear)){
-    currentYear = currentMonth ? currentMonth.slice(0, 4) : (years[0] || '');
+    currentYear = String(window.ccSelectedDataYear || new Date().getFullYear());\n    if(!years.includes(currentYear)) currentYear = years[0] || '';
   }
 
   const monthsInYear = monthKeys.filter(m => m.startsWith(`${currentYear}-`));
@@ -24,10 +24,9 @@ buildMonthTabs = function(){
 
     yearTabs.querySelectorAll('.chip').forEach(btn => btn.addEventListener('click', () => {
       currentYear = btn.dataset.y;
-      const latestMonth = monthKeys.find(m => m.startsWith(`${currentYear}-`));
-      currentMonth = latestMonth || '';
-      buildMonthTabs();
-      renderRecords();
+      window.ccSelectedDataYear = Number(currentYear);
+      currentMonth = '';
+      loadRecords({year:Number(currentYear),force:true});
     }));
   }
 
