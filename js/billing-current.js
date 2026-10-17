@@ -80,6 +80,19 @@ function pendingCycleHtml(bank,cycle){
   return p.count ? `<div class="billing-warning">此裝置另有 ${p.count} 筆待同步（${moneyText(p.total)}），尚未計入上方已同步金額${p.uncertain?'；其中 '+p.uncertain+' 筆同步結果待確認':''}。後端恢復前請勿重複送出。</div>` : '';
 }
 
+function billingDataNotice(){
+  const state=window.ccDataStatus||{kind:'loading'};
+  const time=state.savedAt && typeof formatSyncTime==='function' ? formatSyncTime(state.savedAt) : '';
+  if(state.kind==='fresh')return `已從 Sheet 讀取（${time}）；本期金額為交易明細加總，仍須與結算列核對。`;
+  if(state.kind==='cache')return `目前是此裝置的舊資料（${time||'時間不明'}），不代表 Sheet 最新金額。`;
+  if(state.kind==='error-cache')return `Sheet 讀取失敗，目前顯示舊資料（${time||'時間不明'}）；金額可能過時。`;
+  if(state.kind==='error')return 'Sheet 讀取失敗，目前無法確認最新帳務金額。';
+  return '正在讀取資料；目前金額尚未核對。';
+}
+function cycleMismatchNotice(bank,cycle){
+  const mismatch=records.filter(r=>r.bank===bank && r.source?.sheetName && inDateRange(r.date,cycle.s,cycle.e) && !belongsToCycle(r,cycle));
+  return mismatch.length ? `<div class="billing-warning">帳期核對：有 ${mismatch.length} 筆日期落在本期、但實際位於其他 Sheet 分頁的紀錄，未計入本期。請檢查分頁與帳期，勿直接修改資料。</div>` : '';
+}
 function moneyText(value){
   return `NT$${Number(value || 0).toLocaleString()}`;
 }
@@ -130,7 +143,7 @@ function renderBillingOverview(){
   }
 
   const now = new Date();
-  const cards = [];
+  const cards = [`<div class="billing-note" style="margin-bottom:12px">${esc(billingDataNotice())}</div>`];
 
   Object.entries(APP_CONFIG.banks).forEach(([bank, cfg]) => {
     // 尚未確認帳期的銀行才以當月交易估算。
@@ -157,7 +170,7 @@ function renderBillingOverview(){
     const openCycle = activeCycleForBank(cfg.cycleStartDay, now, bank);
     if(!closedCycle){
       const openRaw=records.filter(r=>r.bank===bank && belongsToCycle(r,openCycle));
-      cards.push('<div class="billing-card '+bankClass(bank)+'"><div class="billing-head"><strong>'+esc(bank)+'</strong><span>繳款日：每月 '+cfg.paymentDueDay+' 日</span></div><div class="billing-cycle-label">首期累積｜'+rangeText(openCycle)+'</div><div class="billing-amount">'+moneyText(sumTwd(openRaw))+'</div>'+pendingCycleHtml(bank,openCycle)+'<div class="billing-note">首期依實際 Google Sheet 分頁計算；前一期資訊尚未確認，不推算上一期應繳金額。</div></div>');
+      cards.push('<div class="billing-card '+bankClass(bank)+'"><div class="billing-head"><strong>'+esc(bank)+'</strong><span>繳款日：每月 '+cfg.paymentDueDay+' 日</span></div><div class="billing-cycle-label">首期累積｜'+rangeText(openCycle)+'</div><div class="billing-amount">'+moneyText(sumTwd(openRaw))+'</div>'+cycleMismatchNotice(bank,openCycle)+pendingCycleHtml(bank,openCycle)+'<div class="billing-note">首期依實際 Google Sheet 分頁計算；前一期資訊尚未確認，不推算上一期應繳金額。</div></div>');
       return;
     }
     const snapshotKey = dateToInput(now).slice(0,7);
@@ -208,6 +221,7 @@ function renderBillingOverview(){
           <div><span>本期累積消費（${rangeText(openCycle)}）</span></div>
           <strong>${moneyText(sumTwd(nextAccumulated))}</strong>
         </div>
+        ${cycleMismatchNotice(bank,openCycle)}
         ${pendingCycleHtml(bank,openCycle)}
         ${nextMissing ? `<div class="billing-warning soft">${accumulatingMonthLabel}另有 ${nextMissing} 筆尚未補台幣金額</div>` : ''}
         ${deferred.length ? `<div class="billing-moved-note">已有 ${deferred.length} 筆未請款交易移至${accumulatingMonthLabel}</div>` : ''}
