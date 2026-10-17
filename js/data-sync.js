@@ -29,7 +29,7 @@ function mapApiRecords(apiRecords){
 
 function readRecordsCache(year){
   try{
-    const raw = localStorage.getItem(RECORDS_CACHE_KEY);
+    const raw = localStorage.getItem(RECORDS_CACHE_KEY + '_' + year);
     if(!raw) return null;
     const cache = JSON.parse(raw);
     if(Number(cache.year) !== Number(year) || !Array.isArray(cache.records)) return null;
@@ -45,7 +45,7 @@ function readRecordsCache(year){
 
 function saveRecordsCache(year, dataVersion){
   try{
-    localStorage.setItem(RECORDS_CACHE_KEY, JSON.stringify({
+    localStorage.setItem(RECORDS_CACHE_KEY + '_' + year, JSON.stringify({
       year,
       dataVersion: dataVersion || '',
       savedAt: new Date().toISOString(),
