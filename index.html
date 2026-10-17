@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>信用卡記帳</title>
-  <link rel="stylesheet" href="css/style.css?v=20261017-1505">
+  <link rel="stylesheet" href="css/style.css?v=20261017-1512">
 </head>
 <body>
   <div class="app">
@@ -56,6 +56,7 @@
 
     <section id="analysisPage" class="page">
       <div class="analysis-head"><div><h2>消費分析</h2><div class="sub">依目前已載入的信用卡紀錄即時計算</div></div></div>
+      <div class="section-label">年份</div><div id="analysisYearTabs" class="tabs"></div>
       <div class="section-label">月份</div><div id="analysisMonthTabs" class="tabs"></div>
       <div class="analysis-summary-grid"><div class="analysis-stat"><small>本月消費</small><strong id="analysisPurchase">NT$0</strong></div><div class="analysis-stat refund"><small>本月退刷</small><strong id="analysisRefund">NT$0</strong></div><div class="analysis-stat net"><small>淨支出</small><strong id="analysisNet">NT$0</strong></div><div class="analysis-stat pending"><small>待補台幣</small><strong id="analysisPending">0 筆</strong></div></div>
       <div class="analysis-card"><div class="analysis-card-title"><strong>銀行消費占比</strong><span>依金額</span></div><div class="analysis-donut-layout"><div id="bankDonut" class="analysis-donut"><div id="bankDonutCenter" class="analysis-donut-center"><strong>NT$0</strong><span>淨支出</span></div></div><div id="bankLegend" class="analysis-legend"></div></div></div>
@@ -69,15 +70,15 @@
 
   <div id="editModal" class="modal"><div class="sheet"><div class="sheetHead"><h3>修改刷卡紀錄</h3><button id="closeEdit" class="close">✕</button></div><input id="editId" type="hidden"><div class="field"><label>銀行</label><select id="editBank"><option>中信</option><option>國泰</option><option>台新</option><option>富邦</option></select></div><div class="field"><label>卡別</label><input id="editCard"></div><div class="field"><label>日期</label><div class="date-select-row"><select id="editDateYear" aria-label="修改年份"></select><select id="editDateMonth" aria-label="修改月份"></select><select id="editDateDay" aria-label="修改日期"></select></div><input id="editDate" type="hidden"></div><div class="field"><label>進度</label><select id="editStatus"><option>刷</option><option>繳</option></select></div><div class="field"><label>項目</label><input id="editItem"></div><div class="field"><label>台幣金額</label><input id="editTwd" type="number"></div><div class="row"><div class="field"><label>幣別</label><select id="editCurrency"><option value="">無</option><option>KRW</option><option>JPY</option><option>USD</option><option>EUR</option></select></div><div class="field"><label>外幣金額</label><input id="editForeign" type="number"></div></div><div class="field"><label>備註</label><textarea id="editNote"></textarea></div><div class="row"><button id="modalDelete" class="btn danger">刪除</button><button id="modalSave" class="btn primary">儲存修改</button></div></div></div>
 
-  <script src="js/config.js?v=20261017-1505"></script>
-  <script src="js/date-select.js?v=20261017-1505"></script>
-  <script src="js/app.js?v=20261017-1505"></script>
-  <script src="js/data-sync.js?v=20261017-1505"></script>
-  <script src="js/year-view.js?v=20261017-1505"></script>
-  <script src="js/billing-current.js?v=20261017-1505"></script>
-  <script src="js/transaction-type.js?v=20261017-1505"></script>
-  <script src="js/record-filter.js?v=20261017-1505"></script>
-  <script src="js/analysis.js?v=20261017-1505"></script>
-  <script src="js/version-check.js?v=20261017-1505"></script>
+  <script src="js/config.js?v=20261017-1512"></script>
+  <script src="js/date-select.js?v=20261017-1512"></script>
+  <script src="js/app.js?v=20261017-1512"></script>
+  <script src="js/data-sync.js?v=20261017-1512"></script>
+  <script src="js/year-view.js?v=20261017-1512"></script>
+  <script src="js/billing-current.js?v=20261017-1512"></script>
+  <script src="js/transaction-type.js?v=20261017-1512"></script>
+  <script src="js/record-filter.js?v=20261017-1512"></script>
+  <script src="js/analysis.js?v=20261017-1512"></script>
+  <script src="js/version-check.js?v=20261017-1512"></script>
 </body>
 </html>
