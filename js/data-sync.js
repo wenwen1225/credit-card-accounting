@@ -2,6 +2,12 @@
 // 目標：進站先秒開上次資料，只做輕量版本檢查；雲端有變更時再由使用者更新。
 
 const RECORDS_CACHE_KEY = APP_CONFIG.storage.recordsCacheKey;
+// 帳務總覽同步狀態：不把本機快取誤稱為即時 Sheet 金額。
+window.ccDataStatus = {kind:'loading',savedAt:null};
+function ccSetDataStatus(kind,savedAt){
+  window.ccDataStatus={kind,savedAt:savedAt||null};
+  if(typeof renderBillingOverview==='function')renderBillingOverview();
+}
 
 function normalizeTransactionType(record){
   const raw = String(record?.transactionType || record?.type || '').toLowerCase();
@@ -131,6 +137,7 @@ loadRecords = async function(options = {}){
 
   if(!force && cache){
     records = cache.records;
+    ccSetDataStatus('cache',cache.savedAt);
     renderCurrentRecords(`已顯示本機資料｜上次同步 ${formatSyncTime(cache.savedAt)}`);
     ccSyncToolbar(`已顯示本機資料｜上次同步 ${formatSyncTime(cache.savedAt)}`);
     return;
@@ -143,6 +150,7 @@ loadRecords = async function(options = {}){
     const freshRecords = await fetchCloudRecords(year);
     if(seq !== ccLoadSequence || year !== Number(window.ccSelectedDataYear)) return;
     records = freshRecords;
+    ccSetDataStatus('fresh',new Date().toISOString());
     saveRecordsCache(year, '');
     renderCurrentRecords(`已同步 ${records.length} 筆｜${formatSyncTime(new Date().toISOString())}`);
     ccSyncToolbar(`已同步 ${records.length} 筆｜${formatSyncTime(new Date().toISOString())}`);
@@ -151,9 +159,11 @@ loadRecords = async function(options = {}){
     console.error('loadRecords error:', err);
     if(cache){
       records = cache.records;
+      ccSetDataStatus('error-cache',cache.savedAt);
       renderCurrentRecords(`雲端讀取失敗，顯示本機資料｜${formatSyncTime(cache.savedAt)}`);
       ccSyncToolbar(`雲端讀取失敗，顯示本機資料｜${formatSyncTime(cache.savedAt)}`,true);
     }else{
+      ccSetDataStatus('error',null);
       setSyncInfo('讀取失敗：'+err.message,true);
       recordList.innerHTML = '<div class="empty">目前無法讀取 Google Sheet。<small>'+esc(err.message)+'</small></div>';
       pendingList.innerHTML = recordList.innerHTML;
