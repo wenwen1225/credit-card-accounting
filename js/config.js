@@ -1,7 +1,7 @@
 const APP_CONFIG = {
   apiUrl: '/api/gas',
   version: {
-    frontend: '2026.10.17-v5.20',
+    frontend: '2026.10.17-v5.21',
     expectedBackend: '2.5'
   },
   storage: {
