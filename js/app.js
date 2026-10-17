@@ -234,31 +234,42 @@ document.querySelectorAll('#bankTabs .chip').forEach(btn => btn.addEventListener
 searchInp.addEventListener('input', renderRecords);
 
 function buildMonthTabs(){
-  const months = [...new Set(records.map(r => monthKey(r.date)).filter(Boolean))].sort().reverse();
+  const queuedDates=typeof ccQueueRead==='function'?ccQueueRead().map(x=>monthKey(x.record?.date)).filter(Boolean):[];
+  const months = [...new Set([...records.map(r => monthKey(r.date)).filter(Boolean),...queuedDates])].sort().reverse();
   if(!currentMonth || !months.includes(currentMonth)) currentMonth = months[0] || '';
   monthTabs.innerHTML = months.map(m => `<button class="chip ${m===currentMonth?'active':''}" data-m="${m}">${Number(m.slice(5))}月</button>`).join('');
   monthTabs.querySelectorAll('.chip').forEach(btn => btn.addEventListener('click', () => { currentMonth = btn.dataset.m; buildMonthTabs(); renderRecords(); }));
 }
 
 function renderRecords(){
-  if(!records.length){
-    countVal.textContent='0'; totalVal.textContent='NT$0';
-    recordList.innerHTML='<div class="empty">目前沒有讀到紀錄</div>'; return;
-  }
-  const q = searchInp.value.trim().toLowerCase();
-  let list = records.filter(r => monthKey(r.date) === currentMonth && (bankFilter === '全部' || r.bank === bankFilter));
-  if(q) list = list.filter(r => (`${r.item} ${r.note} ${r.card}`).toLowerCase().includes(q));
-  countVal.textContent = list.length;
-  totalVal.textContent = 'NT$' + list.reduce((s,r)=>s+(Number(r.twd)||0),0).toLocaleString();
-  if(!list.length){ recordList.innerHTML=`<div class="empty">這個條件下沒有紀錄<br><small>目前月份：${esc(currentMonth || '無')}</small></div>`; return; }
-  recordList.innerHTML = list.map(r => `
+  const q=searchInp.value.trim().toLowerCase();
+  let list=records.filter(r=>monthKey(r.date)===currentMonth&&(bankFilter==='全部'||r.bank===bankFilter));
+  if(q)list=list.filter(r=>(`${r.item} ${r.note} ${r.card}`).toLowerCase().includes(q));
+  let pending=[];
+  try{
+    pending=typeof ccQueueRead==='function'?ccQueueRead().filter(x=>{
+      const r=x.record||{};
+      return monthKey(r.date)===currentMonth&&(bankFilter==='全部'||r.bank===bankFilter)&&(!q||(`${r.item} ${r.note} ${r.card}`).toLowerCase().includes(q));
+    }):[];
+  }catch(err){console.warn('待同步紀錄讀取失敗',err);}
+  countVal.textContent=list.length+pending.length;
+  const total=list.reduce((s,r)=>s+(Number(r.twd)||0),0)+pending.reduce((s,x)=>s+(Number(x.record?.twd)||0)*(x.record?.transactionType==='refund'?-1:1),0);
+  totalVal.textContent='NT$'+total.toLocaleString()+(pending.length?'（含待同步）':'');
+  if(!list.length&&!pending.length){recordList.innerHTML='<div class="empty">這個條件下沒有紀錄</div>';return;}
+  const waitingHtml=pending.map(x=>{
+    const r=x.record||{};
+    const status=x.state==='uncertain'?'同步結果未確認':x.state==='sending'?'同步中':'待同步';
+    return `<div class="record ${bankClass(r.bank)}"><div class="rtop"><div><div class="date">${esc(r.date)}</div><div class="item">${esc(r.item)}</div></div><div class="bank">${esc(r.bank)}</div></div><div class="money">${fmtMoney((Number(r.twd)||0)*(r.transactionType==='refund'?-1:1))}</div><div class="rfoot"><span class="status">${status}・暫存於本機</span></div></div>`;
+  }).join('');
+  const savedHtml=list.map(r=>`
     <div class="record ${bankClass(r.bank)}">
       <div class="rtop"><div><div class="date">${esc(r.date)}</div><div class="item">${esc(r.item)}</div></div><div class="bank">${esc(r.bank)}${r.card?'・'+esc(r.card):''}</div></div>
       <div class="money">${fmtMoney(r.twd)}</div>
       ${r.foreign ? `<div class="meta">${esc(r.currency)} ${Number(r.foreign).toLocaleString()}</div>` : ''}
       ${r.note ? `<div class="meta">備註：${esc(r.note)}</div>` : ''}
-      <div class="rfoot"><span class="status">${esc(r.status || '刷')}</span><div class="actions"><button class="mini edit" onclick="openEdit(${r.id})">修改</button><button class="mini del" onclick="deleteRec(${r.id})">刪除</button></div></div>
+      <div class="rfoot"><span class="status">${esc(r.status||'刷')}</span><div class="actions"><button class="mini edit" onclick="openEdit(${r.id})">修改</button><button class="mini del" onclick="deleteRec(${r.id})">刪除</button></div></div>
     </div>`).join('');
+  recordList.innerHTML=waitingHtml+savedHtml;
 }
 
 function renderPending(){
