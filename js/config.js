@@ -1,8 +1,8 @@
 const APP_CONFIG = {
   apiUrl: '/api/gas',
   version: {
-    frontend: '2026.10.17-v5.3',
-    expectedBackend: '1.5'
+    frontend: '2026.10.17-v5.4',
+    expectedBackend: '1.6'
   },
   storage: {
     paidKey: 'cc_demo_paid_v1',
@@ -20,8 +20,8 @@ const APP_CONFIG = {
       cards: []
     },
     '台新': {
-      cycleStartDay: 6,
-      paymentDueDay: null,
+      cycleStartDay: 21,
+      paymentDueDay: 5,
       cards: []
     },
     '富邦': {
