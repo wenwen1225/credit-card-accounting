@@ -59,7 +59,22 @@ function activeCycleForBank(startDay, today, bank){
 }
 
 function sumTwd(list){
-  return list.reduce((sum, r) => sum + (Number(r.twd) || 0), 0);
+  return list.reduce((sum, r) => {
+    const amount=Number(r.twd)||0;
+    return sum + (r.transactionType==='refund' ? -Math.abs(amount) : amount);
+  },0);
+}
+
+function pendingForCycle(bank, cycle){
+  if(!cycle || typeof ccQueueRead!=='function') return {count:0,total:0,uncertain:0};
+  try{
+    const items=ccQueueRead().filter(x=>x.record?.bank===bank && inDateRange(x.record.date,cycle.s,cycle.e));
+    return {count:items.length,total:sumTwd(items.map(x=>x.record)),uncertain:items.filter(x=>x.state==='uncertain').length};
+  }catch(_){return {count:0,total:0,uncertain:0};}
+}
+function pendingCycleHtml(bank,cycle){
+  const p=pendingForCycle(bank,cycle);
+  return p.count ? `<div class="billing-warning">此裝置另有 ${p.count} 筆待同步（${moneyText(p.total)}），尚未計入上方已同步金額${p.uncertain?'；其中 '+p.uncertain+' 筆同步結果待確認':''}。後端恢復前請勿重複送出。</div>` : '';
 }
 
 function moneyText(value){
@@ -106,7 +121,7 @@ function toggleBillingDetail(bank){
 
 function renderBillingOverview(){
   const root = document.getElementById('billingOverview');
-  if(!root || !Array.isArray(records) || !records.length){
+  if(!root || !Array.isArray(records)){
     if(root) root.innerHTML = '<div class="empty">目前沒有可計算的帳務資料</div>';
     return;
   }
@@ -139,7 +154,7 @@ function renderBillingOverview(){
     const openCycle = activeCycleForBank(cfg.cycleStartDay, now, bank);
     if(!closedCycle){
       const openRaw=records.filter(r=>r.bank===bank && belongsToCycle(r,openCycle));
-      cards.push('<div class="billing-card '+bankClass(bank)+'"><div class="billing-head"><strong>'+esc(bank)+'</strong><span>繳款日：每月 '+cfg.paymentDueDay+' 日</span></div><div class="billing-cycle-label">首期累積｜'+rangeText(openCycle)+'</div><div class="billing-amount">'+moneyText(sumTwd(openRaw))+'</div><div class="billing-note">首期為特殊帳期 2026/10/02～10/22；前一期資訊尚未確認，不推算上一期應繳金額。</div></div>');
+      cards.push('<div class="billing-card '+bankClass(bank)+'"><div class="billing-head"><strong>'+esc(bank)+'</strong><span>繳款日：每月 '+cfg.paymentDueDay+' 日</span></div><div class="billing-cycle-label">首期累積｜'+rangeText(openCycle)+'</div><div class="billing-amount">'+moneyText(sumTwd(openRaw))+'</div>'+pendingCycleHtml(bank,openCycle)+'<div class="billing-note">首期為特殊帳期 2026/10/02～10/22；前一期資訊尚未確認，不推算上一期應繳金額。</div></div>');
       return;
     }
     const snapshotKey = dateToInput(now).slice(0,7);
@@ -182,14 +197,15 @@ function renderBillingOverview(){
           <span>${cfg.paymentDueDay ? `${now.getMonth()+1}/${cfg.paymentDueDay} 繳款` : '繳款日待確認'}</span>
         </div>
 
-        <div class="billing-cycle-label">${knownStatement !== undefined ? "上期帳單（已確認）" : "上期交易合計（非銀行帳單）"}</div>
-        <div class="billing-amount">${moneyText(knownStatement !== undefined ? knownStatement : sumTwd(payable))}</div>
+        <div class="billing-cycle-label">${knownStatement !== undefined ? "上期帳單（已確認）" : "上期帳單（尚未核對）"}</div>
+        <div class="billing-amount">${knownStatement !== undefined ? moneyText(knownStatement) : "待確認"}</div>
         ${payableMissing ? `<div class="billing-warning">另有 ${payableMissing} 筆尚未補台幣金額</div>` : ''}
 
         <div class="billing-next-box">
           <div><span>本期累積消費（${rangeText(openCycle)}）</span></div>
           <strong>${moneyText(sumTwd(nextAccumulated))}</strong>
         </div>
+        ${pendingCycleHtml(bank,openCycle)}
         ${nextMissing ? `<div class="billing-warning soft">${accumulatingMonthLabel}另有 ${nextMissing} 筆尚未補台幣金額</div>` : ''}
         ${deferred.length ? `<div class="billing-moved-note">已有 ${deferred.length} 筆未請款交易移至${accumulatingMonthLabel}</div>` : ''}
 
