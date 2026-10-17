@@ -289,7 +289,7 @@ modalSave.addEventListener('click', async()=>{
   const id=Number(editId.value), r=records.find(x=>x.id===id); if(!r||!r.source) return;
   const updated={...r,bank:editBank.value,card:editBank.value==='中信'?editCard.value.trim():'',date:editDate.value,status:editStatus.value,item:editItem.value.trim(),twd:editTwd.value?Number(editTwd.value):null,currency:editCurrency.value,foreign:editForeign.value?Number(editForeign.value):null,note:editNote.value.trim(),foreignAmount:editForeign.value?Number(editForeign.value):null};
   if(!r.source?.rowHash){alert('來源資訊尚未更新，請先從 Sheet 更新資料再修改。');return;}
-  try{ modalSave.disabled=true; modalSave.textContent='儲存中…'; await postToApi({action:'updateRecord',record:updated}); editModal.classList.remove('show'); await loadRecords({force:true}); }
+  try{ modalSave.disabled=true; modalSave.textContent='儲存中…'; const response=await postToApi({action:'updateRecord',record:updated}); if(!response.record?.source?.rowHash)throw Error('GAS 未回傳來源驗證資料'); const fresh=mapApiRecords([response.record])[0]; records=records.map(x=>x.id===id?{...fresh,id}:x); saveRecordsCache(Number(window.ccSelectedDataYear||new Date().getFullYear()),''); editModal.classList.remove('show'); renderCurrentRecords('修改成功，已同步 Google Sheet'); alert('修改成功！'); }
   catch(err){ alert('修改失敗：'+err.message); }
   finally{ modalSave.disabled=false; modalSave.textContent='儲存修改'; }
 });
