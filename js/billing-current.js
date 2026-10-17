@@ -47,11 +47,14 @@ function dateToInput(d){
 }
 
 function previousCycleForBank(startDay, today, bank){
-  if(bank==='富邦' && dateToInput(today)>='2026-10-02' && dateToInput(today)<='2026-10-22')return null;
+  if((bank==='富邦' && dateToInput(today)>='2026-10-02' && dateToInput(today)<='2026-10-22') || (bank==='台新' && dateToInput(today)>='2026-10-06' && dateToInput(today)<='2026-10-20'))return null;
   const active = getBankCycle(bank, dateToInput(today));
   const priorDay = new Date(active.s);
   priorDay.setDate(priorDay.getDate() - 1);
-  return getBankCycle(bank, dateToInput(priorDay));
+  const previous=getBankCycle(bank, dateToInput(priorDay));
+  if(bank==='台新' && previous.s < new Date(2026,9,6,12))return null;
+  if(bank==='富邦' && previous.s < new Date(2026,9,2,12))return null;
+  return previous;
 }
 
 function activeCycleForBank(startDay, today, bank){
@@ -154,7 +157,7 @@ function renderBillingOverview(){
     const openCycle = activeCycleForBank(cfg.cycleStartDay, now, bank);
     if(!closedCycle){
       const openRaw=records.filter(r=>r.bank===bank && belongsToCycle(r,openCycle));
-      cards.push('<div class="billing-card '+bankClass(bank)+'"><div class="billing-head"><strong>'+esc(bank)+'</strong><span>繳款日：每月 '+cfg.paymentDueDay+' 日</span></div><div class="billing-cycle-label">首期累積｜'+rangeText(openCycle)+'</div><div class="billing-amount">'+moneyText(sumTwd(openRaw))+'</div>'+pendingCycleHtml(bank,openCycle)+'<div class="billing-note">首期為特殊帳期 2026/10/02～10/22；前一期資訊尚未確認，不推算上一期應繳金額。</div></div>');
+      cards.push('<div class="billing-card '+bankClass(bank)+'"><div class="billing-head"><strong>'+esc(bank)+'</strong><span>繳款日：每月 '+cfg.paymentDueDay+' 日</span></div><div class="billing-cycle-label">首期累積｜'+rangeText(openCycle)+'</div><div class="billing-amount">'+moneyText(sumTwd(openRaw))+'</div>'+pendingCycleHtml(bank,openCycle)+'<div class="billing-note">首期依實際 Google Sheet 分頁計算；前一期資訊尚未確認，不推算上一期應繳金額。</div></div>');
       return;
     }
     const snapshotKey = dateToInput(now).slice(0,7);
