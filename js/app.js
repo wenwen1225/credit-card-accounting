@@ -313,11 +313,10 @@ async function deleteRec(id){
   const sourceKey=x=>[x?.spreadsheetId,x?.sheetName,x?.row].join('|');
   records=records.filter(x=>sourceKey(x.source)!==sourceKey(r.source));
   if(typeof saveRecordsCache==='function')saveRecordsCache(Number(window.ccSelectedDataYear||new Date().getFullYear()),'');
-  if(typeof renderCurrentRecords==='function')renderCurrentRecords('刪除成功，正在核對 Google Sheet…');
+  if(typeof renderCurrentRecords==='function')renderCurrentRecords('刪除成功，已同步 Google Sheet');
   else{renderRecords();renderPending();}
   alert('刪除成功！已清除 Google Sheet 中這筆交易。');
-  try{await loadRecords({force:true});}
-  catch(err){console.warn('刪除已成功，但重新讀取失敗',err);}
+  // 刪除已由 GAS 確認，無須重新讀取全年紀錄。
 }
 modalDelete.addEventListener('click',()=>{ const id=Number(editId.value); editModal.classList.remove('show'); deleteRec(id); });
 
