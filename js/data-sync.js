@@ -161,5 +161,5 @@ loadRecords = async function(options = {}){
   }
 };
 
-// data-sync.js 已載入完成後，才開始第一次讀取，避免 app.js 先觸發重複請求。
-loadRecords();
+// 等所有顯示與篩選模組載入完成，才渲染快取，避免初次畫面漏掉年份分頁。
+window.addEventListener('DOMContentLoaded', () => loadRecords());
