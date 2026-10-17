@@ -1,0 +1,31 @@
+.compare-card{background:#fff;border:1px solid var(--line);border-radius:20px;padding:15px;margin-bottom:12px;box-shadow:var(--shadow)}
+.compare-main{display:flex;align-items:flex-end;justify-content:space-between;gap:12px}
+.compare-main small{display:block;color:var(--muted);font-size:11px;font-weight:800}
+.compare-main strong{display:block;font-size:23px;margin-top:4px}
+.compare-change{font-size:13px;font-weight:900;padding:7px 10px;border-radius:999px}
+.compare-change.up{background:#fff1f1;color:#b15b66}
+.compare-change.down{background:#eef9f2;color:#4f7f65}
+.compare-change.neutral{background:#f1f5f8;color:#6d8798}
+.compare-sub{font-size:11px;color:var(--muted);margin-top:8px}
+
+.trend-scroll{overflow-x:auto;padding-bottom:4px}
+.trend-bars{display:flex;align-items:flex-end;gap:10px;min-width:max-content;padding:8px 2px 2px}
+.trend-day{width:42px;display:flex;flex-direction:column;align-items:center;gap:5px}
+.trend-value{font-size:9px;color:var(--muted);writing-mode:vertical-rl;transform:rotate(180deg);height:48px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.trend-bar-zone{height:100px;width:24px;display:flex;align-items:flex-end;justify-content:center}
+.trend-bar{width:18px;border-radius:8px 8px 3px 3px;background:linear-gradient(180deg,#74b9e6,#9fd4f4)}
+.trend-bar.negative{background:linear-gradient(180deg,#d9899a,#efb8c2)}
+.trend-day span{font-size:10px;color:var(--muted);font-weight:800}
+
+.top-spend-row{display:grid;grid-template-columns:28px 1fr auto;gap:9px;align-items:center;padding:10px 0;border-bottom:1px solid rgba(70,100,120,.08)}
+.top-spend-row:last-child{border-bottom:0}
+.top-spend-rank{width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:#edf7fc;color:#5688a8;font-size:11px;font-weight:900}
+.top-spend-main{min-width:0}
+.top-spend-main strong{display:block;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.top-spend-main small{display:block;color:var(--muted);font-size:9px;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.top-spend-amount{font-size:12px;font-weight:900;white-space:nowrap}
+
+@media (max-width:390px){
+  .top-spend-row{grid-template-columns:26px 1fr}
+  .top-spend-amount{grid-column:2;text-align:left}
+}
