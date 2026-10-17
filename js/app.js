@@ -302,7 +302,7 @@ function renderReminders(){
     } else future.push(`${bank}：${m}/${due-1} 開始提醒，${m}/${due} 到期`);
   });
   reminders.innerHTML=cards.join('');
-  nextInfo.innerHTML=Object.entries(APP_CONFIG.banks).map(([bank,cfg])=>`${esc(bank)}：每月 ${cfg.paymentDueDay} 日繳款截止（${cfg.paymentDueDay===1?'當日':`前一天 ${cfg.paymentDueDay-1} 日開始提醒`}）`).join('<br>');
+  nextInfo.innerHTML=Object.entries(APP_CONFIG.banks).map(([bank,cfg])=>`${esc(bank)}：每月 ${cfg.paymentDueDay} 日繳款截止`).join('<br>');
 }
 function markPaid(bank,y,m){ paid[`${bank}-${y}-${pad(m)}`]=true; persistPaid(); renderReminders(); }
 window.addEventListener('scroll',()=>topBtn.classList.toggle('show',window.scrollY>420));
