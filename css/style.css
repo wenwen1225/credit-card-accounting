@@ -241,3 +241,5 @@ textarea{min-height:78px;resize:vertical}
 .cc-refresh-btn{display:block;margin-top:8px;background:white;border:1px solid #b7d8e8;border-radius:9px;padding:7px 10px;color:#4b86a7;font-weight:700;font-size:12px}
 
 .cc-queue-error{padding:9px 10px;background:#fff0f0;color:#a34242;border:1px solid #edb8b8;border-radius:9px;font-size:12px;overflow-wrap:anywhere;line-height:1.6}
+
+.cc-sync-receipts{margin:12px 0;border-top:1px solid #d7e9f2;padding-top:12px}.cc-sync-receipts summary{cursor:pointer;font-weight:800;color:#35769e}.cc-receipt{padding:9px 0;border-bottom:1px solid #e1edf4;line-height:1.8}.cc-receipt a{color:#2679ad;text-decoration:underline}
