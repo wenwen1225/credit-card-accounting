@@ -192,23 +192,18 @@ saveBtn.addEventListener('click', async () => {
       transactionType
     }
   };
-  const originalText = saveBtn.textContent;
+  if(typeof ccQueueCreate !== 'function'){
+    alert('同步模組尚未載入，請重新整理後再試。'); return;
+  }
   try{
-    saveBtn.disabled = true;
-    saveBtn.textContent = '儲存中…';
-    await postToApi(payload);
+    ccQueueCreate(payload.record);
     itemInp.value = '';
     twdInp.value = '';
     foreignInp.value = '';
     noteInp.value = '';
-    await loadRecords({force:true});
-    alert(transactionType === 'refund' ? '退刷紀錄已寫入 Google Sheet' : '刷卡紀錄已寫入 Google Sheet');
-  }catch(err){
-    alert('儲存失敗：' + err.message + '\n請先確認 GAS v1.0 已重新部署，避免重複送出。');
-  }finally{
-    saveBtn.disabled = false;
     if(typeof updateTransactionTypeUi === 'function') updateTransactionTypeUi();
-    else saveBtn.textContent = originalText;
+  }catch(err){
+    alert('無法儲存在此裝置：'+err.message+'。請保留輸入內容，不要關閉頁面。');
   }
 });
 
@@ -305,4 +300,4 @@ topBtn.addEventListener('click',()=>window.scrollTo({top:0,behavior:'smooth'}));
 
 updateCycle();
 renderReminders();
-loadRecords();
+// 初次資料載入由 data-sync.js 統一處理，避免快取尚未初始化就先抓整份 Sheet。
