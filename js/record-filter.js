@@ -1,14 +1,24 @@
-// 紀錄頁篩選：全部紀錄 / 待補金額
-// 取代原本獨立的「待處理」分頁，讓操作更集中。
+// 紀錄頁篩選：交易類型 + 全部紀錄 / 待補金額
 
 let recordStateFilter = 'all';
+let transactionTypeFilter = 'all';
 const recordStateTabs = document.getElementById('recordStateTabs');
+const typeTabs = document.getElementById('typeTabs');
 
 recordStateTabs?.querySelectorAll('.chip').forEach(btn => {
   btn.addEventListener('click', () => {
     recordStateTabs.querySelectorAll('.chip').forEach(x => x.classList.remove('active'));
     btn.classList.add('active');
     recordStateFilter = btn.dataset.state || 'all';
+    renderRecords();
+  });
+});
+
+typeTabs?.querySelectorAll('.chip').forEach(btn => {
+  btn.addEventListener('click', () => {
+    typeTabs.querySelectorAll('.chip').forEach(x => x.classList.remove('active'));
+    btn.classList.add('active');
+    transactionTypeFilter = btn.dataset.type || 'all';
     renderRecords();
   });
 });
@@ -24,6 +34,10 @@ renderRecords = function(){
   const q = searchInp.value.trim().toLowerCase();
   let list = records.filter(r => monthKey(r.date) === currentMonth && (bankFilter === '全部' || r.bank === bankFilter));
 
+  if(transactionTypeFilter !== 'all'){
+    list = list.filter(r => recordTransactionType(r) === transactionTypeFilter);
+  }
+
   if(recordStateFilter === 'pending'){
     list = list.filter(r => Number(r.foreign) !== 0 && !(Math.abs(Number(r.twd)) > 0));
   }
@@ -37,7 +51,10 @@ renderRecords = function(){
   totalVal.textContent = `${total < 0 ? '-' : ''}NT$${Math.abs(total).toLocaleString()}`;
 
   if(!list.length){
-    const emptyText = recordStateFilter === 'pending' ? '這個月份目前沒有待補金額' : '這個條件下沒有紀錄';
+    const typeText = transactionTypeFilter === 'refund' ? '退刷' : transactionTypeFilter === 'purchase' ? '消費' : '';
+    const emptyText = recordStateFilter === 'pending'
+      ? `這個月份目前沒有${typeText ? typeText + '且' : ''}待補金額`
+      : `這個條件下沒有${typeText || ''}紀錄`;
     recordList.innerHTML=`<div class="empty">${emptyText}<br><small>目前月份：${esc(currentMonth || '無')}</small></div>`;
     if(typeof renderBillingOverview === 'function') renderBillingOverview();
     return;
