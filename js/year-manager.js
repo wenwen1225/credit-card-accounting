@@ -64,3 +64,7 @@ document.getElementById('createCycleSheetBtn')?.addEventListener('click',async()
     btn.disabled=false;btn.textContent='新增帳期分頁';
   }
 });
+
+// 帳期日期預設為使用者裝置的今天，避免固定日期過期。
+const ccCycleDateInput=document.getElementById('cycleCreateDate');
+if(ccCycleDateInput){const now=new Date();ccCycleDateInput.value=[now.getFullYear(),String(now.getMonth()+1).padStart(2,'0'),String(now.getDate()).padStart(2,'0')].join('-');}
