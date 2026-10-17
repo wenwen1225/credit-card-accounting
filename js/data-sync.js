@@ -108,55 +108,58 @@ async function fetchCloudRecords(year){
   return mapApiRecords(data.records);
 }
 
-// 覆寫 app.js 原本每次都整包抓 Sheet 的 loadRecords。
+// 快取優先：重新整理網頁不主動讀取 Google Sheet；只有無快取或手動更新時才下載。
+let ccLoadSequence = 0;
+function ccSyncToolbar(message, isError = false){
+  setSyncInfo(message, isError);
+  const el = document.getElementById('syncInfo');
+  if(!el) return;
+  const refresh = document.createElement('button');
+  refresh.type = 'button';
+  refresh.textContent = '從 Sheet 更新資料';
+  refresh.className = 'cc-refresh-btn';
+  refresh.addEventListener('click', () => loadRecords({force:true}));
+  el.appendChild(refresh);
+}
+
 loadRecords = async function(options = {}){
-  const year = new Date().getFullYear();
+  const year = Number(options.year || window.ccSelectedDataYear || new Date().getFullYear());
+  window.ccSelectedDataYear = year;
   const force = Boolean(options.force);
   const cache = readRecordsCache(year);
+  const seq = ++ccLoadSequence;
 
   if(!force && cache){
     records = cache.records;
-    renderCurrentRecords(`已顯示上次資料｜最後同步 ${formatSyncTime(cache.savedAt)}｜正在確認雲端…`);
-
-    try{
-      const cloudVersion = await fetchDataVersion(year);
-      if(cache.dataVersion && cloudVersion === cache.dataVersion){
-        setSyncInfo(`資料已是最新｜最後同步 ${formatSyncTime(cache.savedAt)}`);
-      }else{
-        showCloudUpdateNotice(cloudVersion);
-      }
-      return;
-    }catch(err){
-      console.warn('dataVersion unavailable, fallback to full refresh', err);
-      // 舊後端還沒有 dataVersion 時，退回完整抓取，避免顯示舊資料。
-    }
+    renderCurrentRecords(`已顯示本機資料｜上次同步 ${formatSyncTime(cache.savedAt)}`);
+    ccSyncToolbar(`已顯示本機資料｜上次同步 ${formatSyncTime(cache.savedAt)}`);
+    return;
   }
 
+  // 只有沒有快取、手動按更新，或成功同步完待處理紀錄才抓整年度資料。
   recordList.innerHTML = '<div class="empty">正在讀取 Google Sheet 資料…</div>';
-  pendingList.innerHTML = '<div class="empty">正在讀取 Google Sheet 資料…</div>';
-  setSyncInfo(force ? '正在更新 Google Sheet 資料…' : '正在連接 Google Sheet…');
-
+  setSyncInfo('正在讀取 Google Sheet…');
   try{
     const freshRecords = await fetchCloudRecords(year);
+    if(seq !== ccLoadSequence || year !== Number(window.ccSelectedDataYear)) return;
     records = freshRecords;
-
-    let cloudVersion = options.knownVersion || '';
-    if(!cloudVersion){
-      try{ cloudVersion = await fetchDataVersion(year); }catch(_){ cloudVersion = `legacy-${Date.now()}`; }
-    }
-
-    saveRecordsCache(year, cloudVersion);
-    renderCurrentRecords(`已同步最新資料：${records.length} 筆｜${formatSyncTime(new Date().toISOString())}`);
+    saveRecordsCache(year, '');
+    renderCurrentRecords(`已同步 ${records.length} 筆｜${formatSyncTime(new Date().toISOString())}`);
+    ccSyncToolbar(`已同步 ${records.length} 筆｜${formatSyncTime(new Date().toISOString())}`);
   }catch(err){
+    if(seq !== ccLoadSequence) return;
     console.error('loadRecords error:', err);
     if(cache){
       records = cache.records;
-      renderCurrentRecords(`雲端讀取失敗，先顯示上次資料｜${formatSyncTime(cache.savedAt)}`);
+      renderCurrentRecords(`雲端讀取失敗，顯示本機資料｜${formatSyncTime(cache.savedAt)}`);
+      ccSyncToolbar(`雲端讀取失敗，顯示本機資料｜${formatSyncTime(cache.savedAt)}`,true);
     }else{
-      setSyncInfo(`讀取失敗：${err.message}`, true);
-      const message = `<div class="empty">目前無法讀取 Google Sheet。<br><small>${esc(err.message)}</small></div>`;
-      recordList.innerHTML = message;
-      pendingList.innerHTML = message;
+      setSyncInfo('讀取失敗：'+err.message,true);
+      recordList.innerHTML = '<div class="empty">目前無法讀取 Google Sheet。<small>'+esc(err.message)+'</small></div>';
+      pendingList.innerHTML = recordList.innerHTML;
     }
   }
 };
+
+// data-sync.js 已載入完成後，才開始第一次讀取，避免 app.js 先觸發重複請求。
+loadRecords();
