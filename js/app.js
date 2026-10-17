@@ -165,7 +165,52 @@ foreignLine.addEventListener('click', () => {
   foreignToggle.classList.toggle('on');
   foreignFields.classList.toggle('hidden', !foreignToggle.classList.contains('on'));
 });
-saveBtn.addEventListener('click', () => alert('目前已先接上 Google Sheet 讀取；新增寫回 Sheet 會在下一步接上。'));
+saveBtn.addEventListener('click', async () => {
+  const isForeign = foreignToggle.classList.contains('on');
+  const item = itemInp.value.trim();
+  const twdText = twdInp.value.trim();
+  const foreignText = isForeign ? foreignInp.value.trim() : '';
+  if(!item){ alert('請先填寫項目'); itemInp.focus(); return; }
+  if(!dateInp.value){ alert('請選擇交易日期'); return; }
+  if(!twdText && !foreignText){ alert('請至少填寫台幣或外幣金額'); return; }
+  if((twdText && Number(twdText) < 0) || (foreignText && Number(foreignText) < 0)){
+    alert('請輸入正數；退刷會由系統自動扣除'); return;
+  }
+  const transactionType = document.getElementById('transactionTypeSel')?.value || 'purchase';
+  const payload = {
+    action:'createRecord',
+    record:{
+      bank:bankSel.value,
+      card:bankSel.value === '中信' ? cardSel.value : '',
+      date:dateInp.value,
+      status:statusSel.value,
+      item,
+      twd:twdText ? Number(twdText) : null,
+      foreignCurrency:isForeign ? currencySel.value : '',
+      foreignAmount:foreignText ? Number(foreignText) : null,
+      note:noteInp.value.trim(),
+      transactionType
+    }
+  };
+  const originalText = saveBtn.textContent;
+  try{
+    saveBtn.disabled = true;
+    saveBtn.textContent = '儲存中…';
+    await postToApi(payload);
+    itemInp.value = '';
+    twdInp.value = '';
+    foreignInp.value = '';
+    noteInp.value = '';
+    await loadRecords({force:true});
+    alert(transactionType === 'refund' ? '退刷紀錄已寫入 Google Sheet' : '刷卡紀錄已寫入 Google Sheet');
+  }catch(err){
+    alert('儲存失敗：' + err.message + '\n請先確認 GAS v1.0 已重新部署，避免重複送出。');
+  }finally{
+    saveBtn.disabled = false;
+    if(typeof updateTransactionTypeUi === 'function') updateTransactionTypeUi();
+    else saveBtn.textContent = originalText;
+  }
+});
 
 document.querySelectorAll('.nav button').forEach(btn => btn.addEventListener('click', () => {
   document.querySelectorAll('.nav button').forEach(x => x.classList.remove('active'));
@@ -227,7 +272,7 @@ editModal.addEventListener('click',e=>{ if(e.target===editModal) editModal.class
 modalSave.addEventListener('click', async()=>{
   const id=Number(editId.value), r=records.find(x=>x.id===id); if(!r||!r.source) return;
   const updated={...r,bank:editBank.value,card:editBank.value==='中信'?editCard.value.trim():'',date:editDate.value,status:editStatus.value,item:editItem.value.trim(),twd:editTwd.value?Number(editTwd.value):null,currency:editCurrency.value,foreign:editForeign.value?Number(editForeign.value):null,note:editNote.value.trim(),foreignAmount:editForeign.value?Number(editForeign.value):null};
-  try{ modalSave.disabled=true; modalSave.textContent='儲存中…'; await postToApi({action:'updateRecord',record:updated}); editModal.classList.remove('show'); await loadRecords(); }
+  try{ modalSave.disabled=true; modalSave.textContent='儲存中…'; await postToApi({action:'updateRecord',record:updated}); editModal.classList.remove('show'); await loadRecords({force:true}); }
   catch(err){ alert('修改失敗：'+err.message); }
   finally{ modalSave.disabled=false; modalSave.textContent='儲存修改'; }
 });
