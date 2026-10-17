@@ -115,7 +115,7 @@ async function ccQueueSync(options={}){
   }finally{
     ccQueueBusy=false;ccQueueRender();
     if(sent){
-      try{await loadRecords({year:Number(window.ccSelectedDataYear||new Date().getFullYear()),force:true});}catch(err){console.warn('同步成功後重新讀取失敗，已保留確認寫入的紀錄',err);}
+      // GAS 已回傳完整交易與 rowHash；不用每次同步都重新下載全年 Sheet。
       const note=document.getElementById('ccQueueSaved');
       if(note){note.textContent='已成功同步 '+sent+' 筆到 Google Sheet。';note.classList.remove('hidden');}
     }
