@@ -33,7 +33,8 @@ function ccQueueRender(){
   const html='<div class="cc-queue-head"><strong>'+title+'</strong><button type="button" class="cc-queue-sync" '+(ccQueueBusy||!waiting?'disabled':'')+'>同步待處理</button></div>'+
     (queue.length?'<div class="cc-queue-list">'+queue.map(x=>{
       const status=x.state==='uncertain'?'需先確認 Sheet 是否已寫入':x.state==='sending'?'正在傳送': '尚未同步';
-      return '<div class="cc-queue-row"><span>'+esc(x.record.date)+'・'+esc(x.record.bank)+'・'+esc(x.record.item)+'・'+(x.record.twd==null?'待補台幣':'NT$'+Math.abs(Number(x.record.twd)).toLocaleString())+'</span><small>'+status+'</small><div>'+
+      const errorText=x.error?'<div class="cc-queue-error" role="alert"><strong>上次同步失敗原因：</strong>'+esc(x.error)+'</div>':'';
+      return '<div class="cc-queue-row"><span>'+esc(x.record.date)+'・'+esc(x.record.bank)+'・'+esc(x.record.item)+'・'+(x.record.twd==null?'待補台幣':'NT$'+Math.abs(Number(x.record.twd)).toLocaleString())+'</span><small>'+status+'</small>'+errorText+'<div>'+
         (x.state==='queued'?'<button type="button" data-cc-remove="'+esc(x.id)+'">刪除此待同步項目</button>':'')+
         (x.state==='uncertain'?'<button type="button" data-cc-review="'+esc(x.id)+'">確認後處理</button>':'')+
         '</div></div>';
@@ -76,7 +77,7 @@ async function ccQueueSync(){
         sent++;
       }catch(err){
         q=ccQueueRead();const failed=q.find(x=>x.id===entry.id);
-        if(failed){failed.state='uncertain';failed.error=String(err.message||err);ccQueueWrite(q);}
+        if(failed){failed.state='uncertain';failed.error=String(err.message||err);failed.failedAt=new Date().toISOString();ccQueueWrite(q);}
         // 網路中斷時不確定 GAS 是否已寫入；停止批次，避免重複送出。
         alert('同步中斷：'+err.message+'\n請先查看 Google Sheet 是否已有這筆資料，確認後再處理。');
         break;
