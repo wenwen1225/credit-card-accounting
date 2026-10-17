@@ -26,6 +26,7 @@ function ccQueueCreate(record){
   queue.push({id,record,createdAt:new Date().toISOString(),state:'queued'});
   ccQueueWrite(queue); // 儲存成功後才清空表單
   ccQueueRender();
+  if(typeof renderCurrentRecords==='function')renderCurrentRecords('交易已暫存，正在背景同步…');
   if(typeof renderBillingOverview==='function')renderBillingOverview();
   const note=document.getElementById('ccQueueSaved');
   if(note){note.textContent='已安全儲存在此裝置，正在嘗試背景同步到 Google Sheet…';note.classList.remove('hidden');}
@@ -111,9 +112,11 @@ async function ccQueueSync(options={}){
         break;
       }
       ccQueueRender();
+      if(typeof renderCurrentRecords==='function')renderCurrentRecords();
     }
   }finally{
     ccQueueBusy=false;ccQueueRender();
+    if(typeof renderCurrentRecords==='function')renderCurrentRecords();
     if(sent){
       // GAS 已回傳完整交易與 rowHash；不用每次同步都重新下載全年 Sheet。
       const note=document.getElementById('ccQueueSaved');
