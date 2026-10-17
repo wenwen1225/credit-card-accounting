@@ -27,7 +27,7 @@ buildMonthTabs = function(){
       currentYear = btn.dataset.y;
       window.ccSelectedDataYear = Number(currentYear);
       currentMonth = '';
-      loadRecords({year:Number(currentYear),force:true});
+      loadRecords({year:Number(currentYear)});
     }));
   }
 
