@@ -239,3 +239,5 @@ textarea{min-height:78px;resize:vertical}
 .cc-queue-panel>small{display:block;color:#7993a4;line-height:1.5}
 .cc-queue-saved{margin-top:10px;padding:10px 12px;border-radius:12px;background:#e6f8ef;color:#377e5a;font-size:12px}
 .cc-refresh-btn{display:block;margin-top:8px;background:white;border:1px solid #b7d8e8;border-radius:9px;padding:7px 10px;color:#4b86a7;font-weight:700;font-size:12px}
+
+.cc-queue-error{padding:9px 10px;background:#fff0f0;color:#a34242;border:1px solid #edb8b8;border-radius:9px;font-size:12px;overflow-wrap:anywhere;line-height:1.6}
