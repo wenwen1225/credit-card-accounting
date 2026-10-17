@@ -215,3 +215,12 @@ textarea{min-height:78px;resize:vertical}
   .record-tools-row{display:block}
   .clear-filter-btn{margin-top:-5px;margin-bottom:12px}
 }
+
+/* 年度管理 */
+.year-manager{margin:16px 0;padding:13px 14px;border:1px solid #cde4f3;border-radius:15px;background:#f3faff}
+.year-manager summary{cursor:pointer;font-size:13px;font-weight:800;color:#427998}
+.year-manager-content{padding-top:10px;font-size:12px;color:#527083}
+.year-manager-content p{margin:3px 0 12px}
+.year-manager-actions{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+.year-manager-actions .chip{font-size:12px}
+.year-manager-content small{display:block;line-height:1.7;color:#71899a}
