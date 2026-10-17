@@ -1,6 +1,7 @@
-// 分析頁：本月概況 + 銀行占比 + 消費/退刷占比 + 卡別排行
+// 分析頁：年份 / 月份 + 本月概況 + 銀行占比 + 消費/退刷占比 + 卡別排行
 // 純前端統計，直接使用目前已讀入的 records，不需要新增後端 API。
 
+let analysisYear = '';
 let analysisMonth = '';
 
 function analysisMoney(value){
@@ -8,16 +9,43 @@ function analysisMoney(value){
   return `${n < 0 ? '-' : ''}NT$${Math.abs(n).toLocaleString()}`;
 }
 
-function analysisAvailableMonths(){
-  return [...new Set((Array.isArray(records) ? records : []).map(r => monthKey(r.date)).filter(Boolean))].sort().reverse();
+function analysisAvailableYears(){
+  return [...new Set((Array.isArray(records) ? records : [])
+    .map(r => monthKey(r.date))
+    .filter(Boolean)
+    .map(m => m.slice(0, 4)))].sort().reverse();
 }
 
-function ensureAnalysisMonth(){
-  const months = analysisAvailableMonths();
-  if(!analysisMonth || !months.includes(analysisMonth)){
-    analysisMonth = (currentMonth && months.includes(currentMonth)) ? currentMonth : (months[0] || '');
+function analysisAvailableMonthsForYear(year){
+  if(!year) return [];
+  return [...new Set((Array.isArray(records) ? records : [])
+    .map(r => monthKey(r.date))
+    .filter(m => m && m.startsWith(`${year}-`))
+    .map(m => m.slice(5, 7)))].sort((a,b) => Number(b) - Number(a));
+}
+
+function ensureAnalysisPeriod(){
+  const years = analysisAvailableYears();
+  const currentKey = currentMonth || '';
+  const currentYear = currentKey ? currentKey.slice(0,4) : '';
+  const currentMonthNum = currentKey ? currentKey.slice(5,7) : '';
+
+  if(!analysisYear || !years.includes(analysisYear)){
+    analysisYear = currentYear && years.includes(currentYear) ? currentYear : (years[0] || '');
   }
-  return months;
+
+  const months = analysisAvailableMonthsForYear(analysisYear);
+  if(!analysisMonth || !months.includes(analysisMonth)){
+    analysisMonth = analysisYear === currentYear && months.includes(currentMonthNum)
+      ? currentMonthNum
+      : (months[0] || '');
+  }
+
+  return {years, months};
+}
+
+function selectedAnalysisMonthKey(){
+  return analysisYear && analysisMonth ? `${analysisYear}-${analysisMonth}` : '';
 }
 
 function donutBackground(parts){
@@ -45,10 +73,23 @@ function renderAnalysis(){
   const root = document.getElementById('analysisPage');
   if(!root) return;
 
-  const months = ensureAnalysisMonth();
+  const {years, months} = ensureAnalysisPeriod();
+  const yearTabs = document.getElementById('analysisYearTabs');
   const monthTabs = document.getElementById('analysisMonthTabs');
+
+  if(yearTabs){
+    yearTabs.innerHTML = years.map(y => `<button class="chip ${y === analysisYear ? 'active' : ''}" data-analysis-year="${y}">${y}年</button>`).join('') || '<span class="analysis-empty-small">目前沒有年份資料</span>';
+    yearTabs.querySelectorAll('[data-analysis-year]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        analysisYear = btn.dataset.analysisYear;
+        analysisMonth = '';
+        renderAnalysis();
+      });
+    });
+  }
+
   if(monthTabs){
-    monthTabs.innerHTML = months.map(m => `<button class="chip ${m === analysisMonth ? 'active' : ''}" data-analysis-month="${m}">${Number(m.slice(5))}月</button>`).join('') || '<span class="analysis-empty-small">目前沒有月份資料</span>';
+    monthTabs.innerHTML = months.map(m => `<button class="chip ${m === analysisMonth ? 'active' : ''}" data-analysis-month="${m}">${Number(m)}月</button>`).join('') || '<span class="analysis-empty-small">這個年份目前沒有月份資料</span>';
     monthTabs.querySelectorAll('[data-analysis-month]').forEach(btn => {
       btn.addEventListener('click', () => {
         analysisMonth = btn.dataset.analysisMonth;
@@ -57,7 +98,8 @@ function renderAnalysis(){
     });
   }
 
-  const list = (Array.isArray(records) ? records : []).filter(r => monthKey(r.date) === analysisMonth);
+  const selectedKey = selectedAnalysisMonthKey();
+  const list = (Array.isArray(records) ? records : []).filter(r => monthKey(r.date) === selectedKey);
   const purchase = list.filter(r => recordTransactionType(r) !== 'refund');
   const refunds = list.filter(r => recordTransactionType(r) === 'refund');
   const purchaseTotal = purchase.reduce((sum, r) => sum + Math.abs(Number(r.twd) || 0), 0);
