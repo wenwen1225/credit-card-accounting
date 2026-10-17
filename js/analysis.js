@@ -61,11 +61,12 @@ function donutBackground(parts){
   return `conic-gradient(${stops.join(',')})`;
 }
 
-function renderLegend(root, parts, total){
+function renderLegend(root, parts, total, showAmount = false){
   if(!root) return;
   root.innerHTML = parts.filter(p => Number(p.value) > 0).map(p => {
     const pct = total > 0 ? Math.round((Number(p.value) / total) * 100) : 0;
-    return `<div class="analysis-legend-row"><span class="analysis-dot" style="background:${p.color}"></span><span>${esc(p.label)}</span><strong>${pct}%</strong></div>`;
+    const amountText = showAmount ? `<small>${analysisMoney(p.value)}</small>` : '';
+    return `<div class="analysis-legend-row"><span class="analysis-dot" style="background:${p.color}"></span><span>${esc(p.label)}</span><strong>${pct}%${amountText}</strong></div>`;
   }).join('') || '<div class="analysis-empty-small">目前沒有可統計資料</div>';
 }
 
@@ -132,7 +133,7 @@ function renderAnalysis(){
   if(bankDonut) bankDonut.style.background = donutBackground(bankParts);
   const bankCenter = document.getElementById('bankDonutCenter');
   if(bankCenter) bankCenter.innerHTML = `<strong>${analysisMoney(netTotal)}</strong><span>淨支出</span>`;
-  renderLegend(document.getElementById('bankLegend'), bankParts, bankTotal);
+  renderLegend(document.getElementById('bankLegend'), bankParts, bankTotal, true);
 
   const typeParts = [
     {label:'消費', value:purchaseTotal, color:'#75b7de'},
