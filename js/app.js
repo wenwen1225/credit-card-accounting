@@ -285,8 +285,16 @@ modalSave.addEventListener('click', async()=>{
 async function deleteRec(id){
   const r=records.find(x=>x.id===id); if(!r||!r.source) return;
   if(!confirm('確定刪除這筆紀錄？這會直接刪除 Google Sheet 原資料。')) return;
-  try{ await postToApi({action:'deleteRecord',source:r.source}); await loadRecords(); }
-  catch(err){ alert('刪除失敗：'+err.message); }
+  try{
+    await postToApi({action:'deleteRecord',source:r.source});
+    // 後端確認刪除後，先從畫面及本機快取移除；再強制重新讀取 Sheet。
+    records=records.filter(x=>x.id!==id);
+    if(typeof saveRecordsCache==='function')saveRecordsCache(Number(window.ccSelectedDataYear||new Date().getFullYear()),'');
+    if(typeof renderCurrentRecords==='function')renderCurrentRecords('刪除成功，正在重新讀取 Google Sheet…');
+    else{renderRecords();renderPending();}
+    alert('刪除成功！已從 Google Sheet 刪除這筆紀錄。');
+    await loadRecords({force:true});
+  }catch(err){ alert('刪除或更新資料失敗：'+err.message+'。請先確認 Sheet 狀態，勿直接重複刪除。'); }
 }
 modalDelete.addEventListener('click',()=>{ const id=Number(editId.value); editModal.classList.remove('show'); deleteRec(id); });
 
