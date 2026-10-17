@@ -262,7 +262,7 @@ function renderRecords(){
   const waitingHtml=pending.map(x=>{
     const r=x.record||{};
     const status=x.state==='uncertain'?'同步結果未確認':x.state==='sending'?'同步中':'待同步';
-    return `<div class="record ${bankClass(r.bank)}"><div class="rtop"><div><div class="date">${esc(r.date)}</div><div class="item">${esc(r.item)}</div></div><div class="bank">${esc(r.bank)}</div></div><div class="money">${fmtMoney((Number(r.twd)||0)*(r.transactionType==='refund'?-1:1))}</div><div class="rfoot"><span class="status">${status}・暫存於本機</span></div></div>`;
+    return `<div class="record ${bankClass(r.bank)}"><div class="rtop"><div><div class="date">${esc(r.date)}</div><div class="item">${esc(r.item)}</div></div><div class="bank">${esc(r.bank)}</div></div><div class="money">${fmtMoney((Number(r.twd)||0)*(r.transactionType==='refund'?-1:1))}</div>${r.foreignAmount!==null&&r.foreignAmount!==undefined&&r.foreignAmount!==""?`<div class="meta">外幣：${esc(r.foreignCurrency||"未指定")}｜外幣金額：${esc(ccForeignDisplay(r.foreignCurrency,r.foreignAmount))}</div>`:""}${r.note?`<div class="meta">備註：${esc(r.note)}</div>`:""}<div class="rfoot"><span class="status">${status}・暫存於本機</span></div></div>`;
   }).join('');
   const savedHtml=list.map(r=>`
     <div class="record ${bankClass(r.bank)}">
