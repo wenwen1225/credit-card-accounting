@@ -27,7 +27,7 @@ async function ccMarkCyclePaid(bank,y,m){
   try{cycle=ccPayableCycle(bank,y,m);}catch(err){alert(err.message);return;}
   const label=`${bank}信用卡｜${fmtDate(cycle.s)}～${fmtDate(cycle.e)}`;
   ccCyclePaymentBusy=true;
-  const button=document.querySelector(`.donePay[onclick*="markPaid('${bank}'"]`);
+  const button=[...document.querySelectorAll('.donePay')].find(x=>x.getAttribute('onclick')?.includes(`markPaid('${bank}'`));
   if(button){button.disabled=true;button.textContent='核對帳期中…';}
   let completed=0, total=0;
   try{
@@ -42,6 +42,7 @@ async function ccMarkCyclePaid(bank,y,m){
     const unsafe=pending.filter(r=>!r.source?.rowHash);
     if(unsafe.length)throw Error(`有 ${unsafe.length} 筆缺少來源驗證資訊，無法安全更新`);
     total=pending.length;
+    if(!selected.length)throw Error('這個帳期的 Sheet 沒有找到交易，為避免誤標已繳，請先確認帳期分頁');
     const message=`${label}\n即將把本期 ${total} 筆「刷」改成「繳」，並同步 Google Sheet。\n${total===0?'本期沒有需要修改的「刷」紀錄，僅會完成繳費提醒。\n':''}確認執行？`;
     if(!confirm(message))return;
     for(const r of pending){
