@@ -40,15 +40,16 @@ function dateToInput(d){
   return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
 }
 
-function previousCycleForBank(startDay, today){
-  const active = getCycle(startDay, dateToInput(today));
+function previousCycleForBank(startDay, today, bank){
+  if(bank==='富邦' && dateToInput(today)>='2026-10-02' && dateToInput(today)<='2026-10-22')return null;
+  const active = getBankCycle(bank, dateToInput(today));
   const priorDay = new Date(active.s);
   priorDay.setDate(priorDay.getDate() - 1);
-  return getCycle(startDay, dateToInput(priorDay));
+  return getBankCycle(bank, dateToInput(priorDay));
 }
 
-function activeCycleForBank(startDay, today){
-  return getCycle(startDay, dateToInput(today));
+function activeCycleForBank(startDay, today, bank){
+  return getBankCycle(bank, dateToInput(today));
 }
 
 function sumTwd(list){
@@ -108,7 +109,7 @@ function renderBillingOverview(){
   const cards = [];
 
   Object.entries(APP_CONFIG.banks).forEach(([bank, cfg]) => {
-    // 台新、富邦目前沒有正式結帳規則；目前先用當月已記錄交易估算。
+    // 尚未確認帳期的銀行才以當月交易估算。
     if(!cfg.cycleStartDay){
       const currentMonthRecords = records.filter(r => r.bank === bank && isSameCalendarMonth(r.date, now));
       const missing = currentMonthRecords.filter(r => !(Number(r.twd) > 0)).length;
@@ -128,8 +129,13 @@ function renderBillingOverview(){
       return;
     }
 
-    const closedCycle = previousCycleForBank(cfg.cycleStartDay, now);
-    const openCycle = activeCycleForBank(cfg.cycleStartDay, now);
+    const closedCycle = previousCycleForBank(cfg.cycleStartDay, now, bank);
+    const openCycle = activeCycleForBank(cfg.cycleStartDay, now, bank);
+    if(!closedCycle){
+      const openRaw=records.filter(r=>r.bank===bank && belongsToCycle(r,openCycle));
+      cards.push('<div class="billing-card '+bankClass(bank)+'"><div class="billing-head"><strong>'+esc(bank)+'</strong><span>繳款日：每月 '+cfg.paymentDueDay+' 日</span></div><div class="billing-cycle-label">首期累積｜'+rangeText(openCycle)+'</div><div class="billing-amount">'+moneyText(sumTwd(openRaw))+'</div><div class="billing-note">首期為特殊帳期 2026/10/02～10/22；前一期資訊尚未確認，不推算上一期應繳金額。</div></div>');
+      return;
+    }
     const payableMonthLabel = monthLabelFromCycle(closedCycle);
     const accumulatingMonthLabel = monthLabelFromCycle(openCycle);
 
