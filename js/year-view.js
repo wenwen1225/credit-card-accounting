@@ -8,7 +8,8 @@ buildMonthTabs = function(){
   const years = [...new Set([...monthKeys.map(m => m.slice(0, 4)), ...(typeof ccAvailableYears !== 'undefined' ? ccAvailableYears.map(String) : [])])].sort().reverse();
 
   if(!currentYear || !years.includes(currentYear)){
-    currentYear = String(window.ccSelectedDataYear || new Date().getFullYear());\n    if(!years.includes(currentYear)) currentYear = years[0] || '';
+    currentYear = String(window.ccSelectedDataYear || new Date().getFullYear());
+    if(!years.includes(currentYear)) currentYear = years[0] || '';
   }
 
   const monthsInYear = monthKeys.filter(m => m.startsWith(`${currentYear}-`));
@@ -42,7 +43,4 @@ buildMonthTabs = function(){
   }));
 };
 
-// 進站時讀取最新 Sheet 資料。
-loadRecords();
-updateCycle();
-renderReminders();
+// 首次載入由 app.js 啟動；切換年份時再讀取該年度。
