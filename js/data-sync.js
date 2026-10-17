@@ -1,5 +1,5 @@
 // Google Sheet 資料快取 + 雲端版本比對
-// 目標：進站先秒開上次資料，只做輕量版本檢查；雲端有變更時再由使用者更新。
+// 進站先顯示快取；回到頁面時輕量檢查版本，有變更才下載完整資料。
 
 const RECORDS_CACHE_KEY = APP_CONFIG.storage.recordsCacheKey;
 // 帳務總覽同步狀態：不把本機快取誤稱為即時 Sheet 金額。
@@ -111,11 +111,14 @@ async function fetchCloudRecords(year){
   if(!response.ok) throw new Error(`HTTP ${response.status}`);
   const data = await response.json();
   if(!data.ok) throw new Error(data.error || 'GAS 回傳失敗');
-  return mapApiRecords(data.records);
+  if(!Array.isArray(data.records))throw new Error('GAS 未回傳有效交易清單');
+  return {records:mapApiRecords(data.records),dataVersion:String(data.meta?.dataVersion||'')};
 }
 
 // GAS 已確認寫入的交易立即顯示；重新讀取尚未回傳時不丟失已確認的交易。
 const ccConfirmedWrites = new Map();
+let ccMutationEpoch=0;
+function ccMarkLocalMutation(){ccMutationEpoch++;}
 function ccSourceKey(source){
   if(!source || !source.spreadsheetId || !source.sheetName || !source.row)return '';
   return [source.spreadsheetId,source.sheetName,Number(source.row)].join('|');
@@ -128,6 +131,7 @@ function ccShowConfirmedWrite(record, response){
   const normalized=mapApiRecords([apiRecord])[0];
   if(!normalized)return false;
   ccConfirmedWrites.set(key,normalized);
+  ccMarkLocalMutation();
   const exists=records.some(r=>ccSourceKey(r.source)===key);
   if(!exists)records.unshift({...normalized,id:Math.max(0,...records.map(r=>Number(r.id)||0))+1});
   const year=Number(normalized.date.slice(0,4));
@@ -139,17 +143,17 @@ function ccShowConfirmedWrite(record, response){
   }
   return true;
 }
-function ccMergeConfirmedWrites(fresh){
-  const found=new Set(fresh.map(r=>ccSourceKey(r.source)));
-  for(const [key,record] of ccConfirmedWrites){
-    if(found.has(key)){ccConfirmedWrites.delete(key);continue;}
-    if(Number(record.date.slice(0,4))===Number(window.ccSelectedDataYear))fresh.unshift({...record,id:fresh.length+1});
-  }
+// 完整 Sheet 回應是權威來源：已在 Sheet 刪除的交易不能被舊的樂觀寫入補回。
+function ccAcceptCloudRecords(fresh){
+  ccConfirmedWrites.clear();
   return fresh;
 }
 
 // 快取優先：重新整理網頁不主動讀取 Google Sheet；只有無快取或手動更新時才下載。
 let ccLoadSequence = 0;
+let ccLastVersionCheckAt=0;
+let ccVersionCheckBusy=false;
+const CC_VERSION_CHECK_INTERVAL_MS=60000;
 function ccSyncToolbar(message, isError = false){
   setSyncInfo(message, isError);
   const el = document.getElementById('syncInfo');
@@ -168,12 +172,15 @@ loadRecords = async function(options = {}){
   const force = Boolean(options.force);
   const cache = readRecordsCache(year);
   const seq = ++ccLoadSequence;
+  const mutationAtStart=ccMutationEpoch;
 
   if(!force && cache){
     records = cache.records;
     ccSetDataStatus('cache',cache.savedAt);
     renderCurrentRecords(`已顯示本機資料｜上次同步 ${formatSyncTime(cache.savedAt)}`);
     ccSyncToolbar(`已顯示本機資料｜上次同步 ${formatSyncTime(cache.savedAt)}`);
+    // 快取秒開；背景比對，不阻塞操作。
+    ccCheckSheetVersion();
     return;
   }
 
@@ -181,12 +188,18 @@ loadRecords = async function(options = {}){
   recordList.innerHTML = '<div class="empty">正在讀取 Google Sheet 資料…</div>';
   setSyncInfo('正在讀取 Google Sheet…');
   try{
-    const freshRecords = await fetchCloudRecords(year);
+    const result = await fetchCloudRecords(year);
     if(seq !== ccLoadSequence || year !== Number(window.ccSelectedDataYear)) return;
-    records = ccMergeConfirmedWrites(freshRecords);
-    ccSetDataStatus(ccConfirmedWrites.size?'confirmed-write':'fresh',new Date().toISOString());
-    saveRecordsCache(year, '');
-    const label=ccConfirmedWrites.size?'已更新雲端資料；剛寫入的交易已顯示，仍待讀取核對':'已同步 '+records.length+' 筆｜'+formatSyncTime(new Date().toISOString());
+    // 若讀取期間有新增/修改/刪除，放棄舊快照，避免覆蓋剛成功的操作。
+    if(mutationAtStart!==ccMutationEpoch || (typeof ccQueueBusy!=='undefined' && ccQueueBusy)){
+      ccSyncToolbar('記帳資料剛有變更，保留最新畫面；稍後再核對 Sheet');
+      return;
+    }
+    records = ccAcceptCloudRecords(result.records);
+    ccSetDataStatus('fresh',new Date().toISOString());
+    saveRecordsCache(year,result.dataVersion);
+    ccLastVersionCheckAt=Date.now();
+    const label='已同步 '+records.length+' 筆｜'+formatSyncTime(new Date().toISOString());
     renderCurrentRecords(label);
     ccSyncToolbar(label);
   }catch(err){
@@ -208,3 +221,37 @@ loadRecords = async function(options = {}){
 
 // 等所有顯示與篩選模組載入完成，才渲染快取，避免初次畫面漏掉年份分頁。
 window.addEventListener('DOMContentLoaded', () => loadRecords());
+
+// 返回網頁才檢查，60 秒內不重複；資料版本不同才重新讀取。
+async function ccCheckSheetVersion(){
+  if(document.visibilityState==='hidden' || !navigator.onLine || ccVersionCheckBusy)return;
+  if(Date.now()-ccLastVersionCheckAt<CC_VERSION_CHECK_INTERVAL_MS)return;
+  if(typeof ccQueueBusy!=='undefined' && ccQueueBusy)return;
+  if(document.getElementById('editModal')?.classList.contains('show'))return;
+  const year=Number(window.ccSelectedDataYear||new Date().getFullYear());
+  const cache=readRecordsCache(year);
+  if(!cache)return;
+  const epoch=ccMutationEpoch;
+  ccVersionCheckBusy=true;
+  ccLastVersionCheckAt=Date.now();
+  try{
+    const version=await fetchDataVersion(year);
+    if(epoch!==ccMutationEpoch || year!==Number(window.ccSelectedDataYear))return;
+    if(cache.dataVersion && cache.dataVersion===version){
+      ccSyncToolbar('已確認 Sheet 無新變更｜'+formatSyncTime(new Date().toISOString()));
+      return;
+    }
+    // 無已知版本時先下載一次建立基準，之後才只做版本比對。
+    await loadRecords({year,force:true});
+  }catch(err){
+    console.warn('Sheet 背景版本檢查失敗',err);
+    ccSyncToolbar('無法檢查 Sheet 更新，仍顯示本機資料',true);
+  }finally{
+    ccVersionCheckBusy=false;
+  }
+}
+window.addEventListener('visibilitychange',()=>{
+  if(document.visibilityState==='visible')ccCheckSheetVersion();
+});
+window.addEventListener('focus',()=>ccCheckSheetVersion());
+window.addEventListener('online',()=>ccCheckSheetVersion());
