@@ -277,24 +277,36 @@ editModal.addEventListener('click',e=>{ if(e.target===editModal) editModal.class
 modalSave.addEventListener('click', async()=>{
   const id=Number(editId.value), r=records.find(x=>x.id===id); if(!r||!r.source) return;
   const updated={...r,bank:editBank.value,card:editBank.value==='中信'?editCard.value.trim():'',date:editDate.value,status:editStatus.value,item:editItem.value.trim(),twd:editTwd.value?Number(editTwd.value):null,currency:editCurrency.value,foreign:editForeign.value?Number(editForeign.value):null,note:editNote.value.trim(),foreignAmount:editForeign.value?Number(editForeign.value):null};
+  if(!r.source?.rowHash){alert('來源資訊尚未更新，請先從 Sheet 更新資料再修改。');return;}
   try{ modalSave.disabled=true; modalSave.textContent='儲存中…'; await postToApi({action:'updateRecord',record:updated}); editModal.classList.remove('show'); await loadRecords({force:true}); }
   catch(err){ alert('修改失敗：'+err.message); }
   finally{ modalSave.disabled=false; modalSave.textContent='儲存修改'; }
 });
 
 async function deleteRec(id){
-  const r=records.find(x=>x.id===id); if(!r||!r.source) return;
-  if(!confirm('確定刪除這筆紀錄？這會直接刪除 Google Sheet 原資料。')) return;
+  const r=records.find(x=>x.id===id);
+  if(!r)return;
+  if(!r.source?.rowHash){
+    alert('這筆紀錄缺少最新的來源驗證資訊，系統會先從 Sheet 更新資料；更新後請再按一次刪除。');
+    await loadRecords({force:true});
+    return;
+  }
+  if(!confirm('確定刪除「'+r.item+'」？這會清空 Google Sheet 對應交易欄位，保留結算列及格式。'))return;
   try{
     await postToApi({action:'deleteRecord',source:r.source});
-    // 後端確認刪除後，先從畫面及本機快取移除；再強制重新讀取 Sheet。
-    records=records.filter(x=>x.id!==id);
-    if(typeof saveRecordsCache==='function')saveRecordsCache(Number(window.ccSelectedDataYear||new Date().getFullYear()),'');
-    if(typeof renderCurrentRecords==='function')renderCurrentRecords('刪除成功，正在重新讀取 Google Sheet…');
-    else{renderRecords();renderPending();}
-    alert('刪除成功！已從 Google Sheet 刪除這筆紀錄。');
-    await loadRecords({force:true});
-  }catch(err){ alert('刪除或更新資料失敗：'+err.message+'。請先確認 Sheet 狀態，勿直接重複刪除。'); }
+  }catch(err){
+    alert('刪除未完成：'+err.message+'。如果資料已在 Sheet 修改，請先按「從 Sheet 更新資料」後再操作。');
+    return;
+  }
+  // 只有後端確認刪除成功才移除本機紀錄。
+  const sourceKey=x=>[x?.spreadsheetId,x?.sheetName,x?.row].join('|');
+  records=records.filter(x=>sourceKey(x.source)!==sourceKey(r.source));
+  if(typeof saveRecordsCache==='function')saveRecordsCache(Number(window.ccSelectedDataYear||new Date().getFullYear()),'');
+  if(typeof renderCurrentRecords==='function')renderCurrentRecords('刪除成功，正在核對 Google Sheet…');
+  else{renderRecords();renderPending();}
+  alert('刪除成功！已清除 Google Sheet 中這筆交易。');
+  try{await loadRecords({force:true});}
+  catch(err){console.warn('刪除已成功，但重新讀取失敗',err);}
 }
 modalDelete.addEventListener('click',()=>{ const id=Number(editId.value); editModal.classList.remove('show'); deleteRec(id); });
 
