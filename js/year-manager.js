@@ -73,12 +73,10 @@ ccCycleCreateBtn?.addEventListener('click',async()=>{
   const info=ccNextCyclePreview;
   if(!info || ccCycleBank?.value!==info.bank)return;
   if(!confirm('確定為 '+info.bank+' 建立下一期 '+info.nextTab+' 分頁？\n原本 '+info.latestTab+' 不會被修改。'))return;
-  const adminKey=prompt('請輸入 Apps Script 指令碼屬性 CC_ADMIN_KEY 的管理密碼：');
-  if(!adminKey)return;
   ccCycleCreateBtn.disabled=true;
   ccCycleCreateBtn.textContent='建立中…';
   try{
-    const data=await postToApi({action:'createNextCycleSheet',bank:info.bank,year:info.year,expectedTab:info.nextTab,adminKey});
+    const data=await postToApi({action:'createNextCycleSheet',bank:info.bank,year:info.year,expectedTab:info.nextTab});
     if(ccCycleStatus)ccCycleStatus.textContent=data.alreadyExists
       ? data.tab+' 已存在，沒有覆蓋資料。'
       : '已成功建立 '+info.bank+' '+data.tab+' 分頁。';
