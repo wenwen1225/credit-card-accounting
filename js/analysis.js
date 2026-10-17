@@ -117,29 +117,38 @@ function renderMonthComparison(selectedKey, currentNet){
   box.innerHTML = `<div class="compare-main"><div><small>${currentLabel}淨支出</small><strong>${analysisMoney(currentNet)}</strong></div><div class="compare-change ${changeClass}">${pctText}</div></div><div class="compare-sub">${prevLabel} ${analysisMoney(prevNet)} ・ 差額 ${analysisMoney(currentNet - prevNet)}</div>`;
 }
 
-function renderDailyTrend(list){
+function renderWeeklyTrend(list){
   const root = document.getElementById('dailyTrend');
   if(!root) return;
 
-  const dayMap = {};
+  const weekMap = {
+    1:{label:'第1週', range:'1–7日', value:0},
+    2:{label:'第2週', range:'8–14日', value:0},
+    3:{label:'第3週', range:'15–21日', value:0},
+    4:{label:'第4週', range:'22–月底', value:0}
+  };
+
+  let hasData = false;
   list.forEach(r => {
     const normalized = normalizeClientDate(r.date);
     if(!/^\d{4}-\d{2}-\d{2}$/.test(normalized)) return;
     const day = Number(normalized.slice(8,10));
-    dayMap[day] = (dayMap[day] || 0) + signedTwd(r);
+    const week = day <= 7 ? 1 : day <= 14 ? 2 : day <= 21 ? 3 : 4;
+    weekMap[week].value += signedTwd(r);
+    hasData = true;
   });
 
-  const days = Object.entries(dayMap).map(([day, value]) => ({day:Number(day), value:Number(value)})).sort((a,b) => a.day-b.day);
-  if(!days.length){
-    root.innerHTML = '<div class="analysis-empty-small">這個月份目前沒有每日支出資料</div>';
+  if(!hasData){
+    root.innerHTML = '<div class="analysis-empty-small">這個月份目前沒有每週支出資料</div>';
     return;
   }
 
-  const maxAbs = Math.max(...days.map(x => Math.abs(x.value)), 1);
-  root.innerHTML = `<div class="trend-scroll"><div class="trend-bars">${days.map(x => {
+  const weeks = Object.values(weekMap);
+  const maxAbs = Math.max(...weeks.map(x => Math.abs(x.value)), 1);
+  root.innerHTML = `<div class="trend-scroll"><div class="trend-bars weekly-bars">${weeks.map(x => {
     const h = Math.max(8, Math.round((Math.abs(x.value) / maxAbs) * 92));
     const cls = x.value < 0 ? 'negative' : '';
-    return `<div class="trend-day"><div class="trend-value">${analysisMoney(x.value)}</div><div class="trend-bar-zone"><div class="trend-bar ${cls}" style="height:${h}px"></div></div><span>${x.day}日</span></div>`;
+    return `<div class="trend-day weekly-day"><div class="trend-value">${analysisMoney(x.value)}</div><div class="trend-bar-zone"><div class="trend-bar ${cls}" style="height:${h}px"></div></div><span>${x.label}</span><small>${x.range}</small></div>`;
   }).join('')}</div></div>`;
 }
 
@@ -208,7 +217,7 @@ function renderAnalysis(){
   if(pendingEl) pendingEl.textContent = `${pendingCount} 筆`;
 
   renderMonthComparison(selectedKey, netTotal);
-  renderDailyTrend(list);
+  renderWeeklyTrend(list);
   renderTopTransactions(list);
 
   const bankColors = {
