@@ -55,7 +55,7 @@ async function ccPreviewNextCycle(){
     if(!res.ok)throw Error('HTTP '+res.status);
     const data=await res.json();
     if(!data.ok)throw Error(data.error||'查詢失敗');
-    if(data.version!=='2.4')throw Error('後端尚未更新到 GAS v2.2');
+    if(data.version!=='2.5')throw Error('後端尚未更新到 GAS v2.2');
     ccNextCyclePreview={bank,year,latestTab:data.latestTab,nextTab:data.nextTab};
     if(ccCycleStatus)ccCycleStatus.textContent=bank+'：最新 '+data.latestTab+' → 下一期 '+data.nextTab;
     if(ccCycleCreateBtn){ccCycleCreateBtn.disabled=false;ccCycleCreateBtn.textContent='建立 '+data.nextTab+' 分頁';}
