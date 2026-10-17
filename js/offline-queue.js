@@ -1,6 +1,14 @@
 // 信用卡記帳：本機先存、手動批次同步（不自動重送不確定是否已寫入的請求）
 const CC_QUEUE_KEY = 'cc_pending_creates_v1';
 let ccQueueBusy = false;
+const CC_RECEIPTS_KEY = 'cc_sync_receipts_v1';
+function ccReceiptsRead(){try{return JSON.parse(localStorage.getItem(CC_RECEIPTS_KEY)||'[]');}catch(_){return [];}}
+function ccReceiptStore(entry, response){
+  const source=response?.record?.source;
+  const receipt={id:entry.id,item:entry.record.item,bank:entry.record.bank,date:entry.record.date,twd:entry.record.twd,at:new Date().toISOString(),spreadsheetId:source?.spreadsheetId||'',sheetName:source?.sheetName||'',row:source?.row||0};
+  localStorage.setItem(CC_RECEIPTS_KEY,JSON.stringify([receipt,...ccReceiptsRead()].slice(0,30)));
+}
+
 function ccQueueRead(){
   try{
     const rows = JSON.parse(localStorage.getItem(CC_QUEUE_KEY) || '[]');
@@ -30,6 +38,8 @@ function ccQueueRender(){
   const waiting=queue.filter(x=>x.state==='queued').length;
   const uncertain=queue.filter(x=>x.state==='uncertain').length;
   const title='待同步 '+queue.length+' 筆'+(uncertain?'｜'+uncertain+' 筆需確認':'');
+  const receipts=ccReceiptsRead();
+  const receiptHtml=receipts.length?'<details class="cc-sync-receipts"><summary>最近同步成功紀錄（'+receipts.length+' 筆）</summary>'+receipts.slice(0,10).map(r=>'<div class="cc-receipt"><strong>'+esc(r.date)+'・'+esc(r.bank)+'・'+esc(r.item)+'</strong><div>'+ (r.spreadsheetId?'<a href="https://docs.google.com/spreadsheets/d/'+encodeURIComponent(r.spreadsheetId)+'/edit" target="_blank" rel="noopener noreferrer">開啟實際寫入的 Google Sheet</a>｜'+esc(r.sheetName)+'｜第 '+esc(r.row)+' 列':'沒有取得寫入位置，需人工確認')+'</div></div>').join('')+'</details>':'';
   const html='<div class="cc-queue-head"><strong>'+title+'</strong><button type="button" class="cc-queue-sync" '+(ccQueueBusy||!waiting?'disabled':'')+'>同步待處理</button></div>'+
     (queue.length?'<div class="cc-queue-list">'+queue.map(x=>{
       const status=x.state==='uncertain'?'需先確認 Sheet 是否已寫入':x.state==='sending'?'正在傳送': '尚未同步';
@@ -40,7 +50,7 @@ function ccQueueRender(){
         '</div></div>';
     }).join('')+'</div>':'<small>目前沒有待同步紀錄</small>')+
     (uncertain?'<p class="cc-queue-warning">部分請求結果不明，為避免重複記帳，請先到 Google Sheet 查核，再決定是否重試。</p>':'')+
-    '<small>待同步資料只存在這台裝置的這個瀏覽器；清除網站資料或更換手機可能遺失。</small>';
+    receiptHtml+'<small>待同步資料只存在這台裝置的這個瀏覽器；清除網站資料或更換手機可能遺失。</small>';
   for(const el of [panel,panelRecords]){
     if(!el)continue;
     el.innerHTML=html;
@@ -71,7 +81,11 @@ async function ccQueueSync(){
       if(!target||target.state!=='queued')continue;
       target.state='sending';ccQueueWrite(q);ccQueueRender();
       try{
-        await postToApi({action:'createRecord',record:target.record});
+        const response=await postToApi({action:'createRecord',record:target.record});
+        if(!response?.record?.source?.spreadsheetId || !response?.record?.source?.sheetName || !response?.record?.source?.row){
+          throw new Error('GAS 回傳成功但缺少寫入位置，請確認 Sheet 是否已寫入');
+        }
+        ccReceiptStore(entry,response);
         q=ccQueueRead().filter(x=>x.id!==entry.id);
         ccQueueWrite(q);
         sent++;
