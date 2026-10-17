@@ -5,7 +5,7 @@ let currentYear = '';
 
 buildMonthTabs = function(){
   const monthKeys = [...new Set(records.map(r => monthKey(r.date)).filter(Boolean))].sort().reverse();
-  const years = [...new Set(monthKeys.map(m => m.slice(0, 4)))].sort().reverse();
+  const years = [...new Set([...monthKeys.map(m => m.slice(0, 4)), ...(typeof ccAvailableYears !== 'undefined' ? ccAvailableYears.map(String) : [])])].sort().reverse();
 
   if(!currentYear || !years.includes(currentYear)){
     currentYear = currentMonth ? currentMonth.slice(0, 4) : (years[0] || '');
