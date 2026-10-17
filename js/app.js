@@ -81,6 +81,13 @@ function getCycle(startDay, dateStr){
   e.setDate(e.getDate() - 1);
   return { tab:`${String(y).slice(-2)}/${pad(m)}/${pad(startDay)}`, s, e };
 }
+function getBankCycle(bank, dateStr){
+  if(bank === '富邦' && dateStr >= '2026-10-02' && dateStr <= '2026-10-22'){
+    return {tab:'26/10/02',s:new Date(2026,9,2,12),e:new Date(2026,9,22,12)};
+  }
+  const cfg=APP_CONFIG.banks[bank];
+  return getCycle(cfg.cycleStartDay,dateStr);
+}
 function fmtDate(d){ return `${d.getFullYear()}/${pad(d.getMonth()+1)}/${pad(d.getDate())}`; }
 
 function updateCycle(){
@@ -89,7 +96,7 @@ function updateCycle(){
   const cfg = APP_CONFIG.banks[bank];
   cardField.classList.toggle('hidden', bank !== '中信');
   if(cfg && cfg.cycleStartDay){
-    const c = getCycle(cfg.cycleStartDay, date);
+    const c = getBankCycle(bank, date);
     cycleTitle.textContent = `${bank}｜${c.tab}`;
     cycleRange.textContent = `${fmtDate(c.s)} ～ ${fmtDate(c.e)}`;
   }else{
