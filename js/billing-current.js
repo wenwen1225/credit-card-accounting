@@ -8,6 +8,12 @@ const BILLING_OVERRIDE_KEY = 'cc_billing_cycle_overrides_v2';
 let billingOverrides = readBillingOverrides();
 const billingDetailOpen = {};
 
+// 使用者核對過的上一期帳單快照（只對 2026 年 10 月有效）。
+// 不把前期交易加總誤認為銀行實際出帳金額。
+const VERIFIED_PREVIOUS_STATEMENTS = {
+  '2026-10': { '中信': 62814, '國泰': 23245 }
+};
+
 function readBillingOverrides(){
   try{ return JSON.parse(localStorage.getItem(BILLING_OVERRIDE_KEY) || '{}'); }
   catch(_){ return {}; }
@@ -136,6 +142,8 @@ function renderBillingOverview(){
       cards.push('<div class="billing-card '+bankClass(bank)+'"><div class="billing-head"><strong>'+esc(bank)+'</strong><span>繳款日：每月 '+cfg.paymentDueDay+' 日</span></div><div class="billing-cycle-label">首期累積｜'+rangeText(openCycle)+'</div><div class="billing-amount">'+moneyText(sumTwd(openRaw))+'</div><div class="billing-note">首期為特殊帳期 2026/10/02～10/22；前一期資訊尚未確認，不推算上一期應繳金額。</div></div>');
       return;
     }
+    const snapshotKey = dateToInput(now).slice(0,7);
+    const knownStatement = VERIFIED_PREVIOUS_STATEMENTS[snapshotKey]?.[bank];
     const payableMonthLabel = monthLabelFromCycle(closedCycle);
     const accumulatingMonthLabel = monthLabelFromCycle(openCycle);
 
@@ -147,8 +155,8 @@ function renderBillingOverview(){
     const payable = closedRaw.filter(r => effectiveCycleState(r) !== 'next');
     const nextAccumulated = [...openRaw, ...deferred];
 
-    const payableMissing = payable.filter(r => !(Number(r.twd) > 0)).length;
-    const nextMissing = nextAccumulated.filter(r => !(Number(r.twd) > 0)).length;
+    const payableMissing = payable.filter(r => r.twd === null || r.twd === '').length;
+    const nextMissing = nextAccumulated.filter(r => r.twd === null || r.twd === '').length;
     const isOpen = Boolean(billingDetailOpen[bank]);
 
     const detailRows = closedRaw.map(r => {
@@ -174,12 +182,12 @@ function renderBillingOverview(){
           <span>${cfg.paymentDueDay ? `${now.getMonth()+1}/${cfg.paymentDueDay} 繳款` : '繳款日待確認'}</span>
         </div>
 
-        <div class="billing-cycle-label">${payableMonthLabel}應繳</div>
-        <div class="billing-amount">${moneyText(sumTwd(payable))}</div>
+        <div class="billing-cycle-label">${knownStatement !== undefined ? "上期帳單（已確認）" : "上期交易合計（非銀行帳單）"}</div>
+        <div class="billing-amount">${moneyText(knownStatement !== undefined ? knownStatement : sumTwd(payable))}</div>
         ${payableMissing ? `<div class="billing-warning">另有 ${payableMissing} 筆尚未補台幣金額</div>` : ''}
 
         <div class="billing-next-box">
-          <div><span>${accumulatingMonthLabel}累積</span></div>
+          <div><span>本期累積消費（${rangeText(openCycle)}）</span></div>
           <strong>${moneyText(sumTwd(nextAccumulated))}</strong>
         </div>
         ${nextMissing ? `<div class="billing-warning soft">${accumulatingMonthLabel}另有 ${nextMissing} 筆尚未補台幣金額</div>` : ''}
@@ -195,7 +203,7 @@ function renderBillingOverview(){
           </div>
           <div class="billing-detail-title">${payableMonthLabel}入帳明細（${closedRaw.length} 筆）</div>
           ${detailRows || `<div class="empty compact">${payableMonthLabel}沒有紀錄</div>`}
-          <div class="billing-help">金額以實際 Sheet 分頁為準；歷史資料不會被修改。</div>
+          <div class="billing-help">本期消費由實際交易明細加總；上期帳單以銀行帳單核對金額為準。尚未同步的新增紀錄不計入。</div>
         </div>
       </div>`);
   });
