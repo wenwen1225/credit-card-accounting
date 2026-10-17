@@ -83,6 +83,7 @@ function pendingCycleHtml(bank,cycle){
 function billingDataNotice(){
   const state=window.ccDataStatus||{kind:'loading'};
   const time=state.savedAt && typeof formatSyncTime==='function' ? formatSyncTime(state.savedAt) : '';
+  if(state.kind==='confirmed-write')return `剛寫入的交易已顯示（${time}），正在等待 Sheet 讀取核對；金額仍須與結算列確認。`;
   if(state.kind==='fresh')return `已從 Sheet 讀取（${time}）；本期金額為交易明細加總，仍須與結算列核對。`;
   if(state.kind==='cache')return `目前是此裝置的舊資料（${time||'時間不明'}），不代表 Sheet 最新金額。`;
   if(state.kind==='error-cache')return `Sheet 讀取失敗，目前顯示舊資料（${time||'時間不明'}）；金額可能過時。`;
