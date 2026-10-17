@@ -227,6 +227,7 @@ async function ccCheckSheetVersion(){
   if(document.visibilityState==='hidden' || !navigator.onLine || ccVersionCheckBusy)return;
   if(Date.now()-ccLastVersionCheckAt<CC_VERSION_CHECK_INTERVAL_MS)return;
   if(typeof ccQueueBusy!=='undefined' && ccQueueBusy)return;
+  if(typeof ccCyclePaymentBusy!=='undefined' && ccCyclePaymentBusy)return;
   if(document.getElementById('editModal')?.classList.contains('show'))return;
   const year=Number(window.ccSelectedDataYear||new Date().getFullYear());
   const cache=readRecordsCache(year);
