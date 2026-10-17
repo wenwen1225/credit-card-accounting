@@ -35,4 +35,4 @@ document.getElementById('createNextYearBtn')?.addEventListener('click',async()=>
   }catch(err){alert('建立年度失敗：'+err.message+'\n如果已建立部分銀行，請先按「更新年度清單」確認，不要自行複製。');}
   finally{btn.disabled=false;await ccRefreshYears();}
 });
-ccRefreshYears();
+// 年度清單只在使用者按「更新年度清單」時查詢，避免每次重整都呼叫 GAS。
