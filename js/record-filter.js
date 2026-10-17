@@ -4,6 +4,7 @@ let recordStateFilter = 'all';
 let transactionTypeFilter = 'all';
 const recordStateTabs = document.getElementById('recordStateTabs');
 const typeTabs = document.getElementById('typeTabs');
+const pendingCountBadge = document.getElementById('pendingCountBadge');
 
 recordStateTabs?.querySelectorAll('.chip').forEach(btn => {
   btn.addEventListener('click', () => {
@@ -23,7 +24,27 @@ typeTabs?.querySelectorAll('.chip').forEach(btn => {
   });
 });
 
+function isPendingAmount(record){
+  return Number(record.foreign) !== 0 && !(Math.abs(Number(record.twd)) > 0);
+}
+
+function updatePendingCount(){
+  if(!pendingCountBadge) return;
+
+  // 數字跟著目前選擇的月份、銀行與交易類型走，讓提示對當下畫面最有用。
+  let contextList = records.filter(r => monthKey(r.date) === currentMonth && (bankFilter === '全部' || r.bank === bankFilter));
+  if(transactionTypeFilter !== 'all'){
+    contextList = contextList.filter(r => recordTransactionType(r) === transactionTypeFilter);
+  }
+
+  const count = contextList.filter(isPendingAmount).length;
+  pendingCountBadge.textContent = String(count);
+  pendingCountBadge.classList.toggle('hidden', count === 0);
+}
+
 renderRecords = function(){
+  updatePendingCount();
+
   if(!records.length){
     countVal.textContent='0'; totalVal.textContent='NT$0';
     recordList.innerHTML='<div class="empty">目前沒有讀到紀錄</div>';
@@ -39,7 +60,7 @@ renderRecords = function(){
   }
 
   if(recordStateFilter === 'pending'){
-    list = list.filter(r => Number(r.foreign) !== 0 && !(Math.abs(Number(r.twd)) > 0));
+    list = list.filter(isPendingAmount);
   }
 
   if(q){
@@ -62,7 +83,7 @@ renderRecords = function(){
 
   recordList.innerHTML = list.map(r => {
     const isRefund = recordTransactionType(r) === 'refund';
-    const isPending = Number(r.foreign) !== 0 && !(Math.abs(Number(r.twd)) > 0);
+    const isPending = isPendingAmount(r);
     return `
       <div class="record ${bankClass(r.bank)} ${isRefund ? 'refund-record' : ''}">
         <div class="rtop">
