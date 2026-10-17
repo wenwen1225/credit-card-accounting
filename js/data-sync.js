@@ -114,6 +114,40 @@ async function fetchCloudRecords(year){
   return mapApiRecords(data.records);
 }
 
+// GAS 已確認寫入的交易立即顯示；重新讀取尚未回傳時不丟失已確認的交易。
+const ccConfirmedWrites = new Map();
+function ccSourceKey(source){
+  if(!source || !source.spreadsheetId || !source.sheetName || !source.row)return '';
+  return [source.spreadsheetId,source.sheetName,Number(source.row)].join('|');
+}
+function ccShowConfirmedWrite(record, response){
+  const source=response?.record?.source;
+  const key=ccSourceKey(source);
+  if(!key)return false;
+  const apiRecord={...record,...response.record,source};
+  const normalized=mapApiRecords([apiRecord])[0];
+  if(!normalized)return false;
+  ccConfirmedWrites.set(key,normalized);
+  const exists=records.some(r=>ccSourceKey(r.source)===key);
+  if(!exists)records.unshift({...normalized,id:Math.max(0,...records.map(r=>Number(r.id)||0))+1});
+  const year=Number(normalized.date.slice(0,4));
+  if(year===Number(window.ccSelectedDataYear||new Date().getFullYear())){
+    saveRecordsCache(year,'');
+    ccSetDataStatus('confirmed-write',new Date().toISOString());
+    renderCurrentRecords('已寫入 Sheet，紀錄已立即顯示；正在核對雲端資料…');
+    ccSyncToolbar('已寫入 Sheet，紀錄已立即顯示；正在核對雲端資料…');
+  }
+  return true;
+}
+function ccMergeConfirmedWrites(fresh){
+  const found=new Set(fresh.map(r=>ccSourceKey(r.source)));
+  for(const [key,record] of ccConfirmedWrites){
+    if(found.has(key)){ccConfirmedWrites.delete(key);continue;}
+    if(Number(record.date.slice(0,4))===Number(window.ccSelectedDataYear))fresh.unshift({...record,id:fresh.length+1});
+  }
+  return fresh;
+}
+
 // 快取優先：重新整理網頁不主動讀取 Google Sheet；只有無快取或手動更新時才下載。
 let ccLoadSequence = 0;
 function ccSyncToolbar(message, isError = false){
@@ -149,11 +183,12 @@ loadRecords = async function(options = {}){
   try{
     const freshRecords = await fetchCloudRecords(year);
     if(seq !== ccLoadSequence || year !== Number(window.ccSelectedDataYear)) return;
-    records = freshRecords;
-    ccSetDataStatus('fresh',new Date().toISOString());
+    records = ccMergeConfirmedWrites(freshRecords);
+    ccSetDataStatus(ccConfirmedWrites.size?'confirmed-write':'fresh',new Date().toISOString());
     saveRecordsCache(year, '');
-    renderCurrentRecords(`已同步 ${records.length} 筆｜${formatSyncTime(new Date().toISOString())}`);
-    ccSyncToolbar(`已同步 ${records.length} 筆｜${formatSyncTime(new Date().toISOString())}`);
+    const label=ccConfirmedWrites.size?'已更新雲端資料；剛寫入的交易已顯示，仍待讀取核對':'已同步 '+records.length+' 筆｜'+formatSyncTime(new Date().toISOString());
+    renderCurrentRecords(label);
+    ccSyncToolbar(label);
   }catch(err){
     if(seq !== ccLoadSequence) return;
     console.error('loadRecords error:', err);
