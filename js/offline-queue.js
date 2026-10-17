@@ -41,7 +41,7 @@ function ccQueueRender(){
   const title='待同步 '+queue.length+' 筆'+(uncertain?'｜'+uncertain+' 筆需確認':'');
   const receipts=ccReceiptsRead();
   const receiptHtml=receipts.length?'<details class="cc-sync-receipts"><summary>最近同步成功紀錄（'+receipts.length+' 筆）</summary>'+receipts.slice(0,10).map(r=>'<div class="cc-receipt"><strong>'+esc(r.date)+'・'+esc(r.bank)+'・'+esc(r.item)+'</strong><div>'+ (r.spreadsheetId?'<a href="https://docs.google.com/spreadsheets/d/'+encodeURIComponent(r.spreadsheetId)+'/edit" target="_blank" rel="noopener noreferrer">開啟實際寫入的 Google Sheet</a>｜'+esc(r.sheetName)+'｜第 '+esc(r.row)+' 列':'沒有取得寫入位置，需人工確認')+'</div></div>').join('')+'</details>':'';
-  const html='<p class="cc-queue-warning">目前後端寫入位置尚待修復。可繼續將新消費保存在此裝置；同步前務必先確認後端已修好並備份 Sheet，避免新增資料寫錯位置。</p><div class="cc-queue-head"><strong>'+title+'</strong><button type="button" class="cc-queue-sync" '+(ccQueueBusy||!waiting?'disabled':'')+'>同步待處理</button></div>'+
+  const html='<p class="cc-queue-warning">消費先儲存在這台裝置；按「同步待處理」後才會寫入 Google Sheet。同步成功的紀錄會立即顯示。</p><div class="cc-queue-head"><strong>'+title+'</strong><button type="button" class="cc-queue-sync" '+(ccQueueBusy||!waiting?'disabled':'')+'>同步待處理</button></div>'+
     (queue.length?'<div class="cc-queue-list">'+queue.map(x=>{
       const status=x.state==='uncertain'?'需先確認 Sheet 是否已寫入':x.state==='sending'?'正在傳送': '尚未同步';
       const errorText=x.error?'<div class="cc-queue-error" role="alert"><strong>上次同步失敗原因：</strong>'+esc(x.error)+'</div>':'';
@@ -75,7 +75,7 @@ async function ccQueueSync(){
   if(ccQueueBusy)return;
   const queued=ccQueueRead().filter(x=>x.state==='queued');
   if(!queued.length)return;
-  if(!confirm(`目前後端曾發生寫入錯位，尚未確認修復。\n\n即將把此裝置 ${queued.length} 筆待同步交易送往 Google Sheet。\n\n請先確認：\n1. 已備份 Google Sheet\n2. 已在電腦端修復並驗證 GAS 寫入位置\n3. 確定這些交易尚未存在 Sheet\n\n三項都完成才按「確定」繼續；否則請按「取消」，保留待同步資料。`))return;
+  if(!confirm(`即將把此裝置 ${queued.length} 筆待同步交易送往 Google Sheet。\n\n請先確認：\n1. 已備份 Google Sheet\n2. 確定這些交易尚未存在 Sheet\n\n確認後才按「確定」繼續；否則請按「取消」，保留待同步資料。`))return;
   ccQueueBusy=true;ccQueueRender();
   let sent=0;
   try{
@@ -90,6 +90,7 @@ async function ccQueueSync(){
           throw new Error('GAS 回傳成功但缺少寫入位置，請確認 Sheet 是否已寫入');
         }
         ccReceiptStore(entry,response);
+        if(typeof ccShowConfirmedWrite==='function')ccShowConfirmedWrite(target.record,response);
         q=ccQueueRead().filter(x=>x.id!==entry.id);
         ccQueueWrite(q);
         sent++;
@@ -105,7 +106,7 @@ async function ccQueueSync(){
   }finally{
     ccQueueBusy=false;ccQueueRender();
     if(sent){
-      await loadRecords({year:Number(window.ccSelectedDataYear||new Date().getFullYear()),force:true});
+      try{await loadRecords({year:Number(window.ccSelectedDataYear||new Date().getFullYear()),force:true});}catch(err){console.warn('同步成功後重新讀取失敗，已保留確認寫入的紀錄',err);}
       const note=document.getElementById('ccQueueSaved');
       if(note){note.textContent='已成功同步 '+sent+' 筆到 Google Sheet。';note.classList.remove('hidden');}
     }
