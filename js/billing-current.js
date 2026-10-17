@@ -108,7 +108,7 @@ function renderBillingOverview(){
   const cards = [];
 
   Object.entries(APP_CONFIG.banks).forEach(([bank, cfg]) => {
-    // 台新、富邦目前沒有正式結帳規則；目前就是 10 月這批資料作為下一次應繳估算。
+    // 台新、富邦目前沒有正式結帳規則；目前先用當月已記錄交易估算。
     if(!cfg.cycleStartDay){
       const currentMonthRecords = records.filter(r => r.bank === bank && isSameCalendarMonth(r.date, now));
       const missing = currentMonthRecords.filter(r => !(Number(r.twd) > 0)).length;
@@ -118,20 +118,20 @@ function renderBillingOverview(){
         <div class="billing-card ${bankClass(bank)}">
           <div class="billing-head">
             <strong>${esc(bank)}</strong>
-            <span>帳期規則待確認</span>
+            <span>帳期待確認</span>
           </div>
           <div class="billing-cycle-label">${label}應繳（目前累積）</div>
           <div class="billing-amount">${moneyText(sumTwd(currentMonthRecords))}</div>
           ${missing ? `<div class="billing-warning">另有 ${missing} 筆尚未補台幣金額</div>` : ''}
-          <div class="billing-note">目前先以 ${label} 已記錄交易估算；確認結帳日後再改成正式帳期。</div>
+          <div class="billing-note">目前先以 ${label} 已記錄交易估算；確認結帳日後會改成正式帳期。</div>
         </div>`);
       return;
     }
 
     const closedCycle = previousCycleForBank(cfg.cycleStartDay, now);
     const openCycle = activeCycleForBank(cfg.cycleStartDay, now);
-    const payableMonthLabel = monthLabelFromCycle(closedCycle);   // 例：9月應繳
-    const accumulatingMonthLabel = monthLabelFromCycle(openCycle); // 例：10月累積
+    const payableMonthLabel = monthLabelFromCycle(closedCycle);
+    const accumulatingMonthLabel = monthLabelFromCycle(openCycle);
 
     // 重要：以實際來源 Sheet 分頁為主，而不是只依刷卡日期。
     const closedRaw = records.filter(r => r.bank === bank && belongsToCycle(r, closedCycle));
@@ -168,21 +168,26 @@ function renderBillingOverview(){
           <span>${cfg.paymentDueDay ? `${now.getMonth()+1}/${cfg.paymentDueDay} 繳款` : '繳款日待確認'}</span>
         </div>
 
-        <div class="billing-cycle-label">${payableMonthLabel}應繳｜${rangeText(closedCycle)}</div>
+        <div class="billing-cycle-label">${payableMonthLabel}應繳</div>
         <div class="billing-amount">${moneyText(sumTwd(payable))}</div>
         ${payableMissing ? `<div class="billing-warning">另有 ${payableMissing} 筆尚未補台幣金額</div>` : ''}
 
         <div class="billing-next-box">
-          <div><span>${accumulatingMonthLabel}累積</span><small>${rangeText(openCycle)}</small></div>
+          <div><span>${accumulatingMonthLabel}累積</span></div>
           <strong>${moneyText(sumTwd(nextAccumulated))}</strong>
         </div>
         ${nextMissing ? `<div class="billing-warning soft">${accumulatingMonthLabel}另有 ${nextMissing} 筆尚未補台幣金額</div>` : ''}
         ${deferred.length ? `<div class="billing-moved-note">已有 ${deferred.length} 筆未請款交易移至${accumulatingMonthLabel}</div>` : ''}
 
         <button type="button" class="billing-detail-btn" data-billing-bank="${esc(bank)}">
-          ${isOpen ? `收起${payableMonthLabel}明細` : `檢查${payableMonthLabel}入帳（${closedRaw.length} 筆）`}
+          ${isOpen ? '收起詳細' : '展開詳細'}
         </button>
         <div class="billing-detail ${isOpen ? '' : 'hidden'}">
+          <div class="billing-cycle-detail">
+            <div><span>${payableMonthLabel}帳期</span><strong>${rangeText(closedCycle)}</strong></div>
+            <div><span>${accumulatingMonthLabel}帳期</span><strong>${rangeText(openCycle)}</strong></div>
+          </div>
+          <div class="billing-detail-title">${payableMonthLabel}入帳明細（${closedRaw.length} 筆）</div>
           ${detailRows || `<div class="empty compact">${payableMonthLabel}沒有紀錄</div>`}
           <div class="billing-help">金額以實際 Sheet 分頁為準；歷史資料不會被修改。</div>
         </div>
