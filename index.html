@@ -4,8 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>信用卡記帳</title>
-  <link rel="stylesheet" href="css/style.css?v=20261017-2359b">
-  <link rel="stylesheet" href="css/analysis-extra.css?v=20261017-2359b">
+  <link rel="stylesheet" href="css/style.css?v=20261017-2359c">
+  <link rel="stylesheet" href="css/analysis-extra.css?v=20261017-2359c">
 </head>
 <body>
   <div class="app">
@@ -46,7 +46,7 @@
       <div class="section-label">月份帳務</div><p class="sub" style="margin:0 0 12px">以下為已載入 Sheet 的交易統計，可能是上次同步的快取；待同步金額另外列出，不會重複加總。後端尚未修復時，請勿重複同步。</p><div id="billingOverview" class="billing-overview"><div class="empty">正在整理月份帳務…</div></div>
       <div class="summary"><div class="sum"><small>這個月筆數</small><strong id="countVal">0</strong></div><div class="sum"><small>台幣合計</small><strong id="totalVal">NT$0</strong></div></div>
       <details class="year-manager"><summary>年度管理・建立新年度</summary><div class="year-manager-content"><p id="yearManagerStatus">按更新年度清單，確認目前可用年份。</p><div class="year-manager-actions"><button type="button" id="refreshYearsBtn" class="chip">更新年度清單</button><button type="button" id="createNextYearBtn" class="chip">建立下一年度</button></div><small>需先部署 GAS v1.1 並設定年度管理密碼；建立時只複製帳期分頁與格式，不複製消費資料。</small></div></details>
-      <details class="year-manager" id="cycleManager"><summary>新增下一期記帳分頁</summary><div class="year-manager-content"><p>各家銀行依自己的結帳日獨立管理。選銀行後，系統讀取該銀行最新分頁，自動算出下一期。</p><div class="field"><label for="cycleCreateBank">銀行</label><select id="cycleCreateBank"><option>中信</option><option>國泰</option><option>台新</option><option>富邦</option></select></div><div class="year-manager-actions"><button type="button" id="previewNextCycleBtn" class="chip">查詢下一期</button></div><p id="cycleCreateStatus" role="status">請按「查詢下一期」讀取 Google Sheet。</p><button type="button" id="createCycleSheetBtn" class="chip" disabled>建立下一期分頁</button><small>需部署 GAS v2.3；已存在的分頁不會覆蓋，也不會複製上一期交易。</small></div></details><div class="section-label">年份</div><div id="yearTabs" class="tabs"></div>
+      <details class="year-manager" id="cycleManager"><summary>新增下一期記帳分頁</summary><div class="year-manager-content"><p>各家銀行依自己的結帳日獨立管理。選銀行後，系統讀取該銀行最新分頁，自動算出下一期。</p><div class="field"><label for="cycleCreateBank">銀行</label><select id="cycleCreateBank"><option>中信</option><option>國泰</option><option>台新</option><option>富邦</option></select></div><div class="year-manager-actions"><button type="button" id="previewNextCycleBtn" class="chip">查詢下一期</button></div><p id="cycleCreateStatus" role="status">請按「查詢下一期」讀取 Google Sheet。</p><button type="button" id="createCycleSheetBtn" class="chip" disabled>建立下一期分頁</button><small>需部署 GAS v2.4；已存在的分頁不會覆蓋，也不會複製上一期交易。</small></div></details><div class="section-label">年份</div><div id="yearTabs" class="tabs"></div>
       <div class="section-label">月份</div><div id="monthTabs" class="tabs"></div>
       <div class="legend"><span class="l-ctbc">中信</span><span class="l-cathay">國泰</span><span class="l-taishin">台新</span><span class="l-fubon">富邦</span></div>
       <div id="bankTabs" class="tabs"><button class="chip active" data-bank="全部">全部銀行</button><button class="chip" data-bank="中信">中信</button><button class="chip" data-bank="國泰">國泰</button><button class="chip" data-bank="台新">台新</button><button class="chip" data-bank="富邦">富邦</button></div>
@@ -82,17 +82,17 @@
 
   <div id="editModal" class="modal"><div class="sheet"><div class="sheetHead"><h3>修改刷卡紀錄</h3><button id="closeEdit" class="close">✕</button></div><input id="editId" type="hidden"><div class="field"><label>銀行</label><select id="editBank"><option>中信</option><option>國泰</option><option>台新</option><option>富邦</option></select></div><div class="field"><label>卡別</label><input id="editCard"></div><div class="field"><label>日期</label><div class="date-select-row"><select id="editDateYear" aria-label="修改年份"></select><select id="editDateMonth" aria-label="修改月份"></select><select id="editDateDay" aria-label="修改日期"></select></div><input id="editDate" type="hidden"></div><div class="field"><label>進度</label><select id="editStatus"><option>刷</option><option>繳</option></select></div><div class="field"><label>項目</label><input id="editItem"></div><div class="field"><label>台幣金額</label><input id="editTwd" type="number"></div><div class="row"><div class="field"><label>幣別</label><select id="editCurrency"><option value="">無</option><option>KRW</option><option>JPY</option><option>USD</option><option>EUR</option></select></div><div class="field"><label>外幣金額</label><input id="editForeign" type="number"></div></div><div class="field"><label>備註</label><textarea id="editNote"></textarea></div><div class="row"><button id="modalDelete" class="btn danger">刪除</button><button id="modalSave" class="btn primary">儲存修改</button></div></div></div>
 
-  <script src="js/config.js?v=20261017-2359b"></script>
-  <script src="js/date-select.js?v=20261017-2359b"></script>
-  <script src="js/app.js?v=20261017-2359b"></script>
-  <script src="js/data-sync.js?v=20261017-2359b"></script>
-  <script src="js/offline-queue.js?v=20261017-2359b"></script>
-  <script src="js/year-view.js?v=20261017-2359b"></script>
-  <script src="js/billing-current.js?v=20261017-2359b"></script>
-  <script src="js/transaction-type.js?v=20261017-2359b"></script>
-  <script src="js/record-filter.js?v=20261017-2359b"></script>
-  <script src="js/analysis.js?v=20261017-2359b"></script>
-  <script src="js/year-manager.js?v=20261017-2359b"></script>
-  <script src="js/version-check.js?v=20261017-2359b"></script>
+  <script src="js/config.js?v=20261017-2359c"></script>
+  <script src="js/date-select.js?v=20261017-2359c"></script>
+  <script src="js/app.js?v=20261017-2359c"></script>
+  <script src="js/data-sync.js?v=20261017-2359c"></script>
+  <script src="js/offline-queue.js?v=20261017-2359c"></script>
+  <script src="js/year-view.js?v=20261017-2359c"></script>
+  <script src="js/billing-current.js?v=20261017-2359c"></script>
+  <script src="js/transaction-type.js?v=20261017-2359c"></script>
+  <script src="js/record-filter.js?v=20261017-2359c"></script>
+  <script src="js/analysis.js?v=20261017-2359c"></script>
+  <script src="js/year-manager.js?v=20261017-2359c"></script>
+  <script src="js/version-check.js?v=20261017-2359c"></script>
 </body>
 </html>
