@@ -336,7 +336,10 @@ function renderReminders(){
   reminders.innerHTML=cards.join('');
   nextInfo.innerHTML=Object.entries(APP_CONFIG.banks).map(([bank,cfg])=>`${esc(bank)}：每月 ${cfg.paymentDueDay} 日繳款截止`).join('<br>');
 }
-function markPaid(bank,y,m){ paid[`${bank}-${y}-${pad(m)}`]=true; persistPaid(); renderReminders(); }
+async function markPaid(bank,y,m){
+  if(typeof ccMarkCyclePaid!=='function'){alert('帳期繳費模組尚未載入，請重新整理網頁。');return;}
+  await ccMarkCyclePaid(bank,y,m);
+}
 window.addEventListener('scroll',()=>topBtn.classList.toggle('show',window.scrollY>420));
 topBtn.addEventListener('click',()=>window.scrollTo({top:0,behavior:'smooth'}));
 
