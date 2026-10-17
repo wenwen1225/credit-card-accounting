@@ -145,11 +145,11 @@ function renderWeeklyTrend(list){
 
   const weeks = Object.values(weekMap);
   const maxAbs = Math.max(...weeks.map(x => Math.abs(x.value)), 1);
-  root.innerHTML = `<div class="trend-scroll"><div class="trend-bars weekly-bars">${weeks.map(x => {
-    const h = Math.max(8, Math.round((Math.abs(x.value) / maxAbs) * 92));
-    const cls = x.value < 0 ? 'negative' : '';
-    return `<div class="trend-day weekly-day"><div class="trend-value">${analysisMoney(x.value)}</div><div class="trend-bar-zone"><div class="trend-bar ${cls}" style="height:${h}px"></div></div><span>${x.label}</span><small>${x.range}</small></div>`;
-  }).join('')}</div></div>`;
+  root.innerHTML = '<div class="weekly-list">' + weeks.map(w => {
+    const width = w.value === 0 ? 0 : Math.max(3, Math.abs(w.value) / maxAbs * 100);
+    const negative = w.value < 0 ? ' negative' : '';
+    return '<div class="weekly-row"><div class="weekly-head"><span><b>' + w.label + '</b> <small>' + w.range + '</small></span><strong class="weekly-amount' + negative + '">' + analysisMoney(w.value) + '</strong></div><div class="weekly-track"><div class="weekly-fill' + negative + '" style="width:' + width + '%"></div></div></div>';
+  }).join('') + '</div>';
 }
 
 function renderTopTransactions(list){
