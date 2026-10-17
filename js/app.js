@@ -82,6 +82,9 @@ function getCycle(startDay, dateStr){
   return { tab:`${String(y).slice(-2)}/${pad(m)}/${pad(startDay)}`, s, e };
 }
 function getBankCycle(bank, dateStr){
+  if(bank === '台新' && dateStr >= '2026-10-02' && dateStr <= '2026-10-20'){
+    return {tab:'26/10/02',s:new Date(2026,9,2,12),e:new Date(2026,9,20,12)};
+  }
   if(bank === '富邦' && dateStr >= '2026-10-02' && dateStr <= '2026-10-22'){
     return {tab:'26/10/02',s:new Date(2026,9,2,12),e:new Date(2026,9,22,12)};
   }
