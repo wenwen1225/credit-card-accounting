@@ -5,6 +5,7 @@ let transactionTypeFilter = 'all';
 const recordStateTabs = document.getElementById('recordStateTabs');
 const typeTabs = document.getElementById('typeTabs');
 const pendingCountBadge = document.getElementById('pendingCountBadge');
+const clearFiltersBtn = document.getElementById('clearFiltersBtn');
 
 recordStateTabs?.querySelectorAll('.chip').forEach(btn => {
   btn.addEventListener('click', () => {
@@ -24,22 +25,42 @@ typeTabs?.querySelectorAll('.chip').forEach(btn => {
   });
 });
 
+clearFiltersBtn?.addEventListener('click', () => {
+  bankFilter = '全部';
+  transactionTypeFilter = 'all';
+  recordStateFilter = 'all';
+  searchInp.value = '';
+
+  document.querySelectorAll('#bankTabs .chip').forEach(btn => btn.classList.toggle('active', btn.dataset.bank === '全部'));
+  typeTabs?.querySelectorAll('.chip').forEach(btn => btn.classList.toggle('active', btn.dataset.type === 'all'));
+  recordStateTabs?.querySelectorAll('.chip').forEach(btn => btn.classList.toggle('active', btn.dataset.state === 'all'));
+  renderRecords();
+});
+
 function isPendingAmount(record){
   return Number(record.foreign) !== 0 && !(Math.abs(Number(record.twd)) > 0);
 }
 
 function updatePendingCount(){
   if(!pendingCountBadge) return;
-
-  // 數字跟著目前選擇的月份、銀行與交易類型走，讓提示對當下畫面最有用。
   let contextList = records.filter(r => monthKey(r.date) === currentMonth && (bankFilter === '全部' || r.bank === bankFilter));
-  if(transactionTypeFilter !== 'all'){
-    contextList = contextList.filter(r => recordTransactionType(r) === transactionTypeFilter);
-  }
-
+  if(transactionTypeFilter !== 'all') contextList = contextList.filter(r => recordTransactionType(r) === transactionTypeFilter);
   const count = contextList.filter(isPendingAmount).length;
   pendingCountBadge.textContent = String(count);
   pendingCountBadge.classList.toggle('hidden', count === 0);
+}
+
+function bindRecordExpanders(){
+  recordList.querySelectorAll('[data-record-toggle]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const id = btn.dataset.recordToggle;
+      const detail = recordList.querySelector(`[data-record-detail="${id}"]`);
+      if(!detail) return;
+      const opening = detail.classList.contains('hidden');
+      detail.classList.toggle('hidden', !opening);
+      btn.textContent = opening ? '收起' : '詳細';
+    });
+  });
 }
 
 renderRecords = function(){
@@ -54,18 +75,9 @@ renderRecords = function(){
 
   const q = searchInp.value.trim().toLowerCase();
   let list = records.filter(r => monthKey(r.date) === currentMonth && (bankFilter === '全部' || r.bank === bankFilter));
-
-  if(transactionTypeFilter !== 'all'){
-    list = list.filter(r => recordTransactionType(r) === transactionTypeFilter);
-  }
-
-  if(recordStateFilter === 'pending'){
-    list = list.filter(isPendingAmount);
-  }
-
-  if(q){
-    list = list.filter(r => (`${r.item} ${r.note} ${r.card} ${recordTransactionType(r) === 'refund' ? '退刷 退款' : '消費'}`).toLowerCase().includes(q));
-  }
+  if(transactionTypeFilter !== 'all') list = list.filter(r => recordTransactionType(r) === transactionTypeFilter);
+  if(recordStateFilter === 'pending') list = list.filter(isPendingAmount);
+  if(q) list = list.filter(r => (`${r.item} ${r.note} ${r.card} ${recordTransactionType(r) === 'refund' ? '退刷 退款' : '消費'}`).toLowerCase().includes(q));
 
   countVal.textContent = list.length;
   const total = list.reduce((sum, r) => sum + signedTwd(r), 0);
@@ -73,9 +85,7 @@ renderRecords = function(){
 
   if(!list.length){
     const typeText = transactionTypeFilter === 'refund' ? '退刷' : transactionTypeFilter === 'purchase' ? '消費' : '';
-    const emptyText = recordStateFilter === 'pending'
-      ? `這個月份目前沒有${typeText ? typeText + '且' : ''}待補金額`
-      : `這個條件下沒有${typeText || ''}紀錄`;
+    const emptyText = recordStateFilter === 'pending' ? `這個月份目前沒有${typeText ? typeText + '且' : ''}待補金額` : `這個條件下沒有${typeText || ''}紀錄`;
     recordList.innerHTML=`<div class="empty">${emptyText}<br><small>目前月份：${esc(currentMonth || '無')}</small></div>`;
     if(typeof renderBillingOverview === 'function') renderBillingOverview();
     return;
@@ -87,23 +97,27 @@ renderRecords = function(){
     return `
       <div class="record ${bankClass(r.bank)} ${isRefund ? 'refund-record' : ''}">
         <div class="rtop">
-          <div>
-            <div class="date">${esc(r.date)}</div>
-            <div class="item">${isRefund ? '<span class="refund-badge">退刷</span>' : ''}${esc(r.item)}</div>
-          </div>
-          <div class="bank">${esc(r.bank)}${r.card?'・'+esc(r.card):''}</div>
+          <div><div class="date">${esc(r.date)}</div><div class="item">${isRefund ? '<span class="refund-badge">退刷</span>' : ''}${esc(r.item)}</div></div>
+          <div class="bank">${esc(r.bank)}</div>
         </div>
         <div class="money ${isRefund ? 'refund-money' : ''}">${transactionMoneyText(r)}</div>
-        ${r.foreign ? `<div class="meta">${isRefund ? '-' : ''}${esc(r.currency)} ${Math.abs(Number(r.foreign)).toLocaleString()}</div>` : ''}
         ${isPending ? '<div class="pending-inline">待補台幣金額</div>' : ''}
-        ${r.note ? `<div class="meta">備註：${esc(r.note)}</div>` : ''}
+
+        <div class="record-detail hidden" data-record-detail="${r.id}">
+          ${r.card ? `<div class="meta">卡別：${esc(r.card)}</div>` : ''}
+          ${r.foreign ? `<div class="meta">外幣：${isRefund ? '-' : ''}${esc(r.currency)} ${Math.abs(Number(r.foreign)).toLocaleString()}</div>` : ''}
+          ${r.note ? `<div class="meta">備註：${esc(r.note)}</div>` : ''}
+          <div class="meta">進度：${esc(r.status || '刷')}</div>
+        </div>
+
         <div class="rfoot">
           <span class="status ${isRefund ? 'refund-status' : ''}">${isPending ? '待補' : (isRefund ? '退刷' : esc(r.status || '刷'))}</span>
-          <div class="actions"><button class="mini edit" onclick="openEdit(${r.id})">${isPending ? '補金額' : '修改'}</button><button class="mini del" onclick="deleteRec(${r.id})">刪除</button></div>
+          <div class="actions"><button class="mini detail" data-record-toggle="${r.id}">詳細</button><button class="mini edit" onclick="openEdit(${r.id})">${isPending ? '補金額' : '修改'}</button><button class="mini del" onclick="deleteRec(${r.id})">刪除</button></div>
         </div>
       </div>`;
   }).join('');
 
+  bindRecordExpanders();
   if(typeof renderBillingOverview === 'function') renderBillingOverview();
 };
 
