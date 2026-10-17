@@ -28,7 +28,8 @@ function ccQueueCreate(record){
   ccQueueRender();
   if(typeof renderBillingOverview==='function')renderBillingOverview();
   const note=document.getElementById('ccQueueSaved');
-  if(note){note.textContent='已存入此裝置，尚未寫入 Google Sheet。可繼續新增，之後按「同步待處理」。';note.classList.remove('hidden');}
+  if(note){note.textContent='已安全儲存在此裝置，正在嘗試背景同步到 Google Sheet…';note.classList.remove('hidden');}
+  ccAutoSyncQueue();
 }
 function ccQueueRender(){
   const panel=document.getElementById('ccQueuePanel');
@@ -41,7 +42,7 @@ function ccQueueRender(){
   const title='待同步 '+queue.length+' 筆'+(uncertain?'｜'+uncertain+' 筆需確認':'');
   const receipts=ccReceiptsRead();
   const receiptHtml=receipts.length?'<details class="cc-sync-receipts"><summary>最近同步成功紀錄（'+receipts.length+' 筆）</summary>'+receipts.slice(0,10).map(r=>'<div class="cc-receipt"><strong>'+esc(r.date)+'・'+esc(r.bank)+'・'+esc(r.item)+'</strong><div>'+ (r.spreadsheetId?'<a href="https://docs.google.com/spreadsheets/d/'+encodeURIComponent(r.spreadsheetId)+'/edit" target="_blank" rel="noopener noreferrer">開啟實際寫入的 Google Sheet</a>｜'+esc(r.sheetName)+'｜第 '+esc(r.row)+' 列':'沒有取得寫入位置，需人工確認')+'</div></div>').join('')+'</details>':'';
-  const html='<p class="cc-queue-warning">消費先儲存在這台裝置；按「同步待處理」後才會寫入 Google Sheet。同步成功的紀錄會立即顯示。</p><div class="cc-queue-head"><strong>'+title+'</strong><button type="button" class="cc-queue-sync" '+(ccQueueBusy||!waiting?'disabled':'')+'>同步待處理</button></div>'+
+  const html='<p class="cc-queue-warning">新增後會自動嘗試同步到 Google Sheet；未同步成功的資料暫存於此裝置，必要時可手動同步。</p><div class="cc-queue-head"><strong>'+title+'</strong><button type="button" class="cc-queue-sync" '+(ccQueueBusy||!waiting?'disabled':'')+'>同步待處理</button></div>'+
     (queue.length?'<div class="cc-queue-list">'+queue.map(x=>{
       const status=x.state==='uncertain'?'需先確認 Sheet 是否已寫入':x.state==='sending'?'正在傳送': '尚未同步';
       const errorText=x.error?'<div class="cc-queue-error" role="alert"><strong>上次同步失敗原因：</strong>'+esc(x.error)+'</div>':'';
@@ -71,11 +72,16 @@ function ccQueueRender(){
     }));
   }
 }
-async function ccQueueSync(){
+function ccAutoSyncQueue(){
+  if(typeof navigator!=='undefined' && navigator.onLine===false)return;
+  if(!ccQueueBusy && ccQueueRead().some(x=>x.state==='queued'))void ccQueueSync({automatic:true});
+}
+async function ccQueueSync(options={}){
+  const automatic=Boolean(options?.automatic);
   if(ccQueueBusy)return;
   const queued=ccQueueRead().filter(x=>x.state==='queued');
   if(!queued.length)return;
-  if(!confirm(`即將把此裝置 ${queued.length} 筆待同步交易送往 Google Sheet。\n\n請先確認：\n1. 已備份 Google Sheet\n2. 確定這些交易尚未存在 Sheet\n\n確認後才按「確定」繼續；否則請按「取消」，保留待同步資料。`))return;
+  if(!automatic && !confirm(`即將同步 ${queued.length} 筆待處理交易到 Google Sheet。請確認這些交易尚未存在 Sheet，避免重複記帳。`))return;
   ccQueueBusy=true;ccQueueRender();
   let sent=0;
   try{
@@ -89,8 +95,9 @@ async function ccQueueSync(){
         if(!response?.record?.source?.spreadsheetId || !response?.record?.source?.sheetName || !response?.record?.source?.row){
           throw new Error('GAS 回傳成功但缺少寫入位置，請確認 Sheet 是否已寫入');
         }
-        ccReceiptStore(entry,response);
-        if(typeof ccShowConfirmedWrite==='function')ccShowConfirmedWrite(target.record,response);
+        // GAS 回傳有效寫入位置即視為成功；前端顯示或收據錯誤不得造成重送。
+        try{ccReceiptStore(entry,response);}catch(err){console.warn('寫入收據儲存失敗',err);}
+        try{if(typeof ccShowConfirmedWrite==='function')ccShowConfirmedWrite(target.record,response);}catch(err){console.warn('即時顯示失敗，稍後重新讀取',err);}
         q=ccQueueRead().filter(x=>x.id!==entry.id);
         ccQueueWrite(q);
         sent++;
@@ -98,7 +105,9 @@ async function ccQueueSync(){
         q=ccQueueRead();const failed=q.find(x=>x.id===entry.id);
         if(failed){failed.state='uncertain';failed.error=String(err.message||err);failed.failedAt=new Date().toISOString();ccQueueWrite(q);}
         // 網路中斷時不確定 GAS 是否已寫入；停止批次，避免重複送出。
-        alert('同步中斷：'+err.message+'\n請先查看 Google Sheet 是否已有這筆資料，確認後再處理。');
+        if(!automatic)alert('同步中斷：'+err.message+'\n請先查看 Google Sheet 是否已有這筆資料，確認後再處理。');
+        const note=document.getElementById('ccQueueSaved');
+        if(note){note.textContent='同步結果未確認：請查看 Google Sheet 是否已寫入，再決定是否重試。';note.classList.remove('hidden');}
         break;
       }
       ccQueueRender();
@@ -113,3 +122,7 @@ async function ccQueueSync(){
   }
 }
 ccQueueRender();
+
+// 網頁開啟時可在連線恢復後繼續送出尚未發送的交易；結果不明者絕不自動重送。
+window.addEventListener('online',ccAutoSyncQueue);
+window.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')ccAutoSyncQueue();});
