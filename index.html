@@ -45,7 +45,8 @@
       <div id="ccQueueRecords" class="cc-queue-panel"></div><div id="reminders"></div><div id="nextInfo" class="nextInfo"></div>
       <div class="section-label">月份帳務</div><div id="billingOverview" class="billing-overview"><div class="empty">正在整理月份帳務…</div></div>
       <div class="summary"><div class="sum"><small>這個月筆數</small><strong id="countVal">0</strong></div><div class="sum"><small>台幣合計</small><strong id="totalVal">NT$0</strong></div></div>
-      <details class="year-manager"><summary>年度管理・建立新年度</summary><div class="year-manager-content"><p id="yearManagerStatus">按更新年度清單，確認目前可用年份。</p><div class="year-manager-actions"><button type="button" id="refreshYearsBtn" class="chip">更新年度清單</button><button type="button" id="createNextYearBtn" class="chip">建立下一年度</button></div><small>需先部署 GAS v1.1 並設定年度管理密碼；建立時只複製帳期分頁與格式，不複製消費資料。</small></div></details>\n      <div class="section-label">年份</div><div id="yearTabs" class="tabs"></div>
+      <details class="year-manager"><summary>年度管理・建立新年度</summary><div class="year-manager-content"><p id="yearManagerStatus">按更新年度清單，確認目前可用年份。</p><div class="year-manager-actions"><button type="button" id="refreshYearsBtn" class="chip">更新年度清單</button><button type="button" id="createNextYearBtn" class="chip">建立下一年度</button></div><small>需先部署 GAS v1.1 並設定年度管理密碼；建立時只複製帳期分頁與格式，不複製消費資料。</small></div></details>
+      <div class="section-label">年份</div><div id="yearTabs" class="tabs"></div>
       <div class="section-label">月份</div><div id="monthTabs" class="tabs"></div>
       <div class="legend"><span class="l-ctbc">中信</span><span class="l-cathay">國泰</span><span class="l-taishin">台新</span><span class="l-fubon">富邦</span></div>
       <div id="bankTabs" class="tabs"><button class="chip active" data-bank="全部">全部銀行</button><button class="chip" data-bank="中信">中信</button><button class="chip" data-bank="國泰">國泰</button><button class="chip" data-bank="台新">台新</button><button class="chip" data-bank="富邦">富邦</button></div>
@@ -85,11 +86,13 @@
   <script src="js/date-select.js?v=20261017-1900"></script>
   <script src="js/app.js?v=20261017-1900"></script>
   <script src="js/data-sync.js?v=20261017-1900"></script>
-  <script src="js/offline-queue.js?v=20261017-1900"></script>\n  <script src="js/year-view.js?v=20261017-1900"></script>
+  <script src="js/offline-queue.js?v=20261017-1900"></script>
+  <script src="js/year-view.js?v=20261017-1900"></script>
   <script src="js/billing-current.js?v=20261017-1900"></script>
   <script src="js/transaction-type.js?v=20261017-1900"></script>
   <script src="js/record-filter.js?v=20261017-1900"></script>
   <script src="js/analysis.js?v=20261017-1900"></script>
-  <script src="js/year-manager.js?v=20261017-1900"></script>\n  <script src="js/version-check.js?v=20261017-1900"></script>
+  <script src="js/year-manager.js?v=20261017-1900"></script>
+  <script src="js/version-check.js?v=20261017-1900"></script>
 </body>
 </html>
