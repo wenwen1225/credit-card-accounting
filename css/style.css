@@ -224,3 +224,18 @@ textarea{min-height:78px;resize:vertical}
 .year-manager-actions{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
 .year-manager-actions .chip{font-size:12px}
 .year-manager-content small{display:block;line-height:1.7;color:#71899a}
+
+/* 先存手機／待同步批次上傳 */
+.cc-queue-panel{margin:14px 0;padding:13px;border:1px solid #cce4f4;border-radius:16px;background:#f6fbff;color:#476e89;font-size:12px}
+.cc-queue-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px}
+.cc-queue-head strong{font-size:14px}
+.cc-queue-sync{border:0;border-radius:11px;background:#70b8e4;color:white;padding:10px 13px;font-weight:800;cursor:pointer}
+.cc-queue-sync:disabled{opacity:.5;cursor:default}
+.cc-queue-row{border-top:1px solid #dcebf5;padding:10px 0;display:flex;flex-direction:column;gap:5px}
+.cc-queue-row span{font-weight:700;overflow-wrap:anywhere}
+.cc-queue-row small{color:#b46c39}
+.cc-queue-row button{background:white;border:1px solid #d1e3ee;border-radius:9px;padding:6px 9px;color:#5d7b91;font-size:11px}
+.cc-queue-warning{color:#b25252;font-weight:700}
+.cc-queue-panel>small{display:block;color:#7993a4;line-height:1.5}
+.cc-queue-saved{margin-top:10px;padding:10px 12px;border-radius:12px;background:#e6f8ef;color:#377e5a;font-size:12px}
+.cc-refresh-btn{display:block;margin-top:8px;background:white;border:1px solid #b7d8e8;border-radius:9px;padding:7px 10px;color:#4b86a7;font-weight:700;font-size:12px}
