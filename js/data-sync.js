@@ -134,8 +134,8 @@ function ccShowConfirmedWrite(record, response){
   if(year===Number(window.ccSelectedDataYear||new Date().getFullYear())){
     saveRecordsCache(year,'');
     ccSetDataStatus('confirmed-write',new Date().toISOString());
-    renderCurrentRecords('已寫入 Sheet，紀錄已立即顯示；正在核對雲端資料…');
-    ccSyncToolbar('已寫入 Sheet，紀錄已立即顯示；正在核對雲端資料…');
+    renderCurrentRecords('已寫入 Google Sheet，紀錄已更新');
+    ccSyncToolbar('已寫入 Google Sheet，紀錄已更新');
   }
   return true;
 }
