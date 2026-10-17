@@ -1,5 +1,4 @@
-// 前後端版本比對：沿用旅遊記帳的概念
-// 顯示網站版本、Apps Script 版本與一致性，並可手動重新檢查。
+// 前後端版本比對：僅手動檢查，不在進站或背景自動發出請求。
 
 async function checkAppVersion(){
   const status = document.getElementById('versionStatus');
@@ -36,6 +35,15 @@ async function checkAppVersion(){
   }
 }
 
-document.getElementById('checkVersionBtn')?.addEventListener('click', checkAppVersion);
-checkAppVersion();
-setInterval(checkAppVersion, 60000);
+const versionStatus = document.getElementById('versionStatus');
+const versionDetail = document.getElementById('versionDetail');
+const versionButton = document.getElementById('checkVersionBtn');
+
+if(versionStatus){
+  versionStatus.className = 'version-state checking';
+  versionStatus.textContent = '尚未檢查';
+}
+if(versionDetail){
+  versionDetail.textContent = `網站 ${APP_CONFIG.version.frontend}｜按右側按鈕手動檢查後端版本`;
+}
+versionButton?.addEventListener('click', checkAppVersion);
