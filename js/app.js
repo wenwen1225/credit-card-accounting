@@ -50,6 +50,8 @@ let bankFilter = '全部';
 function persistPaid(){ localStorage.setItem(PAY_KEY, JSON.stringify(paid)); }
 function esc(s){ return String(s ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
 function pad(n){ return String(n).padStart(2, '0'); }
+function ccCurrencySymbol(currency){return {TWD:'NT$',KRW:'₩',JPY:'¥',USD:'US$',EUR:'€'}[String(currency||'').toUpperCase()]||String(currency||'');}
+function ccForeignDisplay(currency,amount){return ccCurrencySymbol(currency)+Number(amount).toLocaleString('en-US',{maximumFractionDigits:2});}
 function fmtMoney(n){ return n === null || n === '' || n === undefined ? '待補' : 'NT$' + Number(n).toLocaleString(); }
 function bankClass(b){ return b === '中信' ? 'ctbc' : b === '國泰' ? 'cathay' : b === '台新' ? 'taishin' : 'fubon'; }
 
@@ -182,7 +184,8 @@ saveBtn.addEventListener('click', async () => {
   const foreignText = isForeign ? foreignInp.value.trim() : '';
   if(!item){ alert('請先填寫項目'); itemInp.focus(); return; }
   if(!dateInp.value){ alert('請選擇交易日期'); return; }
-  if(!twdText && !foreignText){ alert('請至少填寫台幣或外幣金額'); return; }
+  if(!twdText || !Number.isFinite(Number(twdText)) || Number(twdText)<=0){alert('台幣金額為必填，請輸入大於 0 的金額');twdInp.focus();return;}
+  if(isForeign && (!foreignText || !Number.isFinite(Number(foreignText)) || Number(foreignText)<=0)){alert('外幣消費請輸入有效的外幣金額');foreignInp.focus();return;}
   if((twdText && Number(twdText) < 0) || (foreignText && Number(foreignText) < 0)){
     alert('請輸入正數；退刷會由系統自動扣除'); return;
   }
@@ -265,7 +268,7 @@ function renderRecords(){
     <div class="record ${bankClass(r.bank)}">
       <div class="rtop"><div><div class="date">${esc(r.date)}</div><div class="item">${esc(r.item)}</div></div><div class="bank">${esc(r.bank)}${r.card?'・'+esc(r.card):''}</div></div>
       <div class="money">${fmtMoney(r.twd)}</div>
-      ${r.foreign ? `<div class="meta">${esc(r.currency)} ${Number(r.foreign).toLocaleString()}</div>` : ''}
+      ${r.foreign!==null&&r.foreign!==undefined&&r.foreign!=='' ? `<div class="meta">外幣：${esc(r.currency||'未指定')}</div><div class="meta">外幣金額：${esc(ccForeignDisplay(r.currency,r.foreign))}</div>` : ''}
       ${r.note ? `<div class="meta">備註：${esc(r.note)}</div>` : ''}
       <div class="rfoot"><span class="status">${esc(r.status||'刷')}</span><div class="actions"><button class="mini edit" onclick="openEdit(${r.id})">修改</button><button class="mini del" onclick="deleteRec(${r.id})">刪除</button></div></div>
     </div>`).join('');
@@ -287,6 +290,8 @@ editModal.addEventListener('click',e=>{ if(e.target===editModal) editModal.class
 
 modalSave.addEventListener('click', async()=>{
   const id=Number(editId.value), r=records.find(x=>x.id===id); if(!r||!r.source) return;
+  if(!editTwd.value.trim() || !Number.isFinite(Number(editTwd.value)) || Number(editTwd.value)<=0){alert('台幣金額為必填，請輸入大於 0 的金額');editTwd.focus();return;}
+  if(editForeign.value.trim() && (!editCurrency.value || Number(editForeign.value)<=0)){alert('請填寫有效外幣金額與幣別');return;}
   const updated={...r,bank:editBank.value,card:editBank.value==='中信'?editCard.value.trim():'',date:editDate.value,status:editStatus.value,item:editItem.value.trim(),twd:editTwd.value?Number(editTwd.value):null,currency:editCurrency.value,foreign:editForeign.value?Number(editForeign.value):null,note:editNote.value.trim(),foreignAmount:editForeign.value?Number(editForeign.value):null};
   if(!r.source?.rowHash){alert('來源資訊尚未更新，請先從 Sheet 更新資料再修改。');return;}
   try{ modalSave.disabled=true; modalSave.textContent='儲存中…'; const response=await postToApi({action:'updateRecord',record:updated}); if(!response.record?.source?.rowHash)throw Error('GAS 未回傳來源驗證資料'); const fresh=mapApiRecords([response.record])[0]; if(typeof ccMarkLocalMutation==='function')ccMarkLocalMutation(); records=records.map(x=>x.id===id?{...fresh,id}:x); if(typeof ccConfirmedWrites!=='undefined' && typeof ccSourceKey==='function'){const key=ccSourceKey(fresh.source);if(ccConfirmedWrites.has(key))ccConfirmedWrites.set(key,{...fresh,id});} saveRecordsCache(Number(window.ccSelectedDataYear||new Date().getFullYear()),''); editModal.classList.remove('show'); renderCurrentRecords('修改成功，已同步 Google Sheet'); alert('修改成功！'); }
