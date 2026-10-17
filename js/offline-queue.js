@@ -26,6 +26,7 @@ function ccQueueCreate(record){
   queue.push({id,record,createdAt:new Date().toISOString(),state:'queued'});
   ccQueueWrite(queue); // 儲存成功後才清空表單
   ccQueueRender();
+  if(typeof renderBillingOverview==='function')renderBillingOverview();
   const note=document.getElementById('ccQueueSaved');
   if(note){note.textContent='已存入此裝置，尚未寫入 Google Sheet。可繼續新增，之後按「同步待處理」。';note.classList.remove('hidden');}
 }
@@ -57,16 +58,16 @@ function ccQueueRender(){
     el.querySelector('.cc-queue-sync')?.addEventListener('click',ccQueueSync);
     el.querySelectorAll('[data-cc-remove]').forEach(btn=>btn.addEventListener('click',()=>{
       if(!confirm('只刪除手機內這筆「尚未同步」的資料，確定嗎？'))return;
-      ccQueueWrite(ccQueueRead().filter(x=>x.id!==btn.dataset.ccRemove));ccQueueRender();
+      ccQueueWrite(ccQueueRead().filter(x=>x.id!==btn.dataset.ccRemove));ccQueueRender();if(typeof renderBillingOverview==='function')renderBillingOverview();
     }));
     el.querySelectorAll('[data-cc-review]').forEach(btn=>btn.addEventListener('click',()=>{
       const id=btn.dataset.ccReview;
       const row=ccQueueRead().find(x=>x.id===id);
       if(!row)return;
       const found=confirm('請先開啟 Google Sheet，確認「'+row.record.item+'」這筆交易是否已寫入。\n\n如果「已經寫入」，按「確定」從待同步清單移除。\n如果「確定沒有寫入」，按「取消」後再選擇重試。');
-      if(found){ccQueueWrite(ccQueueRead().filter(x=>x.id!==id));ccQueueRender();return;}
+      if(found){ccQueueWrite(ccQueueRead().filter(x=>x.id!==id));ccQueueRender();if(typeof renderBillingOverview==='function')renderBillingOverview();return;}
       if(!confirm('你已確認 Google Sheet「沒有」這筆資料嗎？\n只有確定沒有寫入，才可以重新同步，避免重複記帳。'))return;
-      const q=ccQueueRead();const x=q.find(x=>x.id===id);if(x)x.state='queued';ccQueueWrite(q);ccQueueRender();
+      const q=ccQueueRead();const x=q.find(x=>x.id===id);if(x)x.state='queued';ccQueueWrite(q);ccQueueRender();if(typeof renderBillingOverview==='function')renderBillingOverview();
     }));
   }
 }
