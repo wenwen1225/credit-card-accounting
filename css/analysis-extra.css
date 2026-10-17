@@ -29,3 +29,16 @@
   .top-spend-row{grid-template-columns:26px 1fr}
   .top-spend-amount{grid-column:2;text-align:left}
 }
+
+/* Weekly spending: horizontal bars for mobile */
+.weekly-list{display:grid;gap:18px;padding:6px 0}
+.weekly-row{min-width:0}
+.weekly-head{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:9px}
+.weekly-head span{display:flex;align-items:baseline;gap:8px;white-space:nowrap}
+.weekly-head b{font-size:13px}
+.weekly-head small{font-size:11px;color:var(--muted)}
+.weekly-amount{font-size:13px;font-weight:900;white-space:nowrap;font-variant-numeric:tabular-nums}
+.weekly-amount.negative{color:#b35f73}
+.weekly-track{height:12px;border-radius:99px;background:#edf4f8;overflow:hidden}
+.weekly-fill{height:100%;border-radius:99px;background:linear-gradient(90deg,#a6d8f2,#6eb5e3)}
+.weekly-fill.negative{background:linear-gradient(90deg,#edb9c5,#d78da0)}
