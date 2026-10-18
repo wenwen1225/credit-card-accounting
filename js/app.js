@@ -32,6 +32,9 @@ const closeEdit = document.getElementById('closeEdit');
 const editId = document.getElementById('editId');
 const editBank = document.getElementById('editBank');
 const editCard = document.getElementById('editCard');
+const editCardField = document.getElementById('editCardField');
+function ccUpdateEditCardVisibility(){editCardField.classList.toggle('hidden',editBank.value!=='中信');}
+editBank.addEventListener('change',ccUpdateEditCardVisibility);
 const editDate = document.getElementById('editDate');
 const editStatus = document.getElementById('editStatus');
 const editItem = document.getElementById('editItem');
@@ -283,7 +286,7 @@ function renderPending(){
 
 function openEdit(id){
   const r=records.find(x=>x.id===id); if(!r) return;
-  editId.value=r.id; editBank.value=r.bank; editCard.value=r.card||''; editDate.value=r.date; editStatus.value=r.status||'刷'; editItem.value=r.item; editTwd.value=r.twd??''; editCurrency.value=r.currency||''; editForeign.value=r.foreign??''; editNote.value=r.note||''; editModal.classList.add('show');
+  editId.value=r.id; editBank.value=r.bank; if(r.bank==='中信' && r.card && !Array.from(editCard.options).some(o=>o.value===r.card)){const option=new Option(r.card,r.card);editCard.add(option);} editCard.value=r.bank==='中信'?(r.card||APP_CONFIG.banks['中信'].cards[0]):APP_CONFIG.banks['中信'].cards[0]; ccUpdateEditCardVisibility(); editDate.value=r.date; editStatus.value=r.status||'刷'; editItem.value=r.item; editTwd.value=r.twd??''; editCurrency.value=r.currency||''; editForeign.value=r.foreign??''; editNote.value=r.note||''; editModal.classList.add('show');
 }
 closeEdit.addEventListener('click',()=>editModal.classList.remove('show'));
 editModal.addEventListener('click',e=>{ if(e.target===editModal) editModal.classList.remove('show'); });
@@ -291,8 +294,10 @@ editModal.addEventListener('click',e=>{ if(e.target===editModal) editModal.class
 modalSave.addEventListener('click', async()=>{
   const id=Number(editId.value), r=records.find(x=>x.id===id); if(!r||!r.source) return;
   if(!editTwd.value.trim() || !Number.isFinite(Number(editTwd.value)) || Number(editTwd.value)<=0){alert('台幣金額為必填，請輸入大於 0 的金額');editTwd.focus();return;}
-  if(editForeign.value.trim() && (!editCurrency.value || Number(editForeign.value)<=0)){alert('請填寫有效外幣金額與幣別');return;}
-  const updated={...r,bank:editBank.value,card:editBank.value==='中信'?editCard.value.trim():'',date:editDate.value,status:editStatus.value,item:editItem.value.trim(),twd:editTwd.value?Number(editTwd.value):null,currency:editCurrency.value,foreign:editForeign.value?Number(editForeign.value):null,note:editNote.value.trim(),foreignAmount:editForeign.value?Number(editForeign.value):null};
+  const editForeignText=editForeign.value.trim();
+  if(Boolean(editCurrency.value)!==Boolean(editForeignText)){alert('幣別與外幣金額必須同時填寫，或同時留空');return;}
+  if(editForeignText && (!Number.isFinite(Number(editForeignText)) || Number(editForeignText)<=0)){alert('請輸入大於 0 的外幣金額');editForeign.focus();return;}
+  const updated={...r,bank:editBank.value,card:editBank.value==='中信'?editCard.value:'',date:editDate.value,status:editStatus.value,item:editItem.value.trim(),twd:editTwd.value?Number(editTwd.value):null,currency:editCurrency.value,foreign:editForeign.value?Number(editForeign.value):null,note:editNote.value.trim(),foreignAmount:editForeign.value?Number(editForeign.value):null};
   if(!r.source?.rowHash){alert('來源資訊尚未更新，請先從 Sheet 更新資料再修改。');return;}
   try{ modalSave.disabled=true; modalSave.textContent='儲存中…'; const response=await postToApi({action:'updateRecord',record:updated}); if(!response.record?.source?.rowHash)throw Error('GAS 未回傳來源驗證資料'); const fresh=mapApiRecords([response.record])[0]; if(typeof ccMarkLocalMutation==='function')ccMarkLocalMutation(); records=records.map(x=>x.id===id?{...fresh,id}:x); if(typeof ccConfirmedWrites!=='undefined' && typeof ccSourceKey==='function'){const key=ccSourceKey(fresh.source);if(ccConfirmedWrites.has(key))ccConfirmedWrites.set(key,{...fresh,id});} saveRecordsCache(Number(window.ccSelectedDataYear||new Date().getFullYear()),''); editModal.classList.remove('show'); renderCurrentRecords('修改成功，已同步 Google Sheet'); alert('修改成功！'); }
   catch(err){ alert('修改失敗：'+err.message); }
