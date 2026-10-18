@@ -265,7 +265,7 @@ function renderRecords(){
   const waitingHtml=pending.map(x=>{
     const r=x.record||{};
     const status=x.state==='uncertain'?'同步結果未確認':x.state==='sending'?'同步中':'待同步';
-    return `<div class="record ${bankClass(r.bank)}"><div class="rtop"><div><div class="date">${esc(r.date)}</div><div class="item">${esc(r.item)}</div></div><div class="bank">${esc(r.bank)}</div></div><div class="money">${fmtMoney((Number(r.twd)||0)*(r.transactionType==='refund'?-1:1))}</div>${r.foreignAmount!==null&&r.foreignAmount!==undefined&&r.foreignAmount!==""?`<div class="meta">外幣：${esc(r.foreignCurrency||"未指定")}｜外幣金額：${esc(ccForeignDisplay(r.foreignCurrency,r.foreignAmount))}</div>`:""}${r.note?`<div class="meta">備註：${esc(r.note)}</div>`:""}<div class="rfoot"><span class="status">${status}・暫存於本機</span></div></div>`;
+    return `<div class="record ${bankClass(r.bank)}"><div class="rtop"><div><div class="date">${esc(r.date)}</div><div class="item">${esc(r.item)}</div></div><div class="bank">${esc(r.bank)}</div></div><div class="money">${fmtMoney((Number(r.twd)||0)*(r.transactionType==='refund'?-1:1))}</div>${r.foreignCurrency&&r.foreignAmount!==null&&r.foreignAmount!==undefined&&r.foreignAmount!==""&&Math.abs(Number(r.foreignAmount))>0?`<div class="meta">外幣：${esc(r.foreignCurrency||"未指定")}｜外幣金額：${esc(ccForeignDisplay(r.foreignCurrency,r.foreignAmount))}</div>`:""}${r.note?`<div class="meta">備註：${esc(r.note)}</div>`:""}<div class="meta">交易類型：${r.transactionType==="refund"?"退刷":"消費"}</div><div class="rfoot"><span class="status">${status}・暫存於本機</span></div></div>`;
   }).join('');
   const savedHtml=list.map(r=>`
     <div class="record ${bankClass(r.bank)}">
@@ -286,7 +286,7 @@ function renderPending(){
 
 function openEdit(id){
   const r=records.find(x=>x.id===id); if(!r) return;
-  editId.value=r.id; editBank.value=r.bank; if(r.bank==='中信' && r.card && !Array.from(editCard.options).some(o=>o.value===r.card)){const option=new Option(r.card,r.card);editCard.add(option);} editCard.value=r.bank==='中信'?(r.card||APP_CONFIG.banks['中信'].cards[0]):APP_CONFIG.banks['中信'].cards[0]; ccUpdateEditCardVisibility(); editDate.value=r.date; editStatus.value=r.status||'刷'; editItem.value=r.item; editTwd.value=r.twd??''; editCurrency.value=r.currency||''; editForeign.value=r.foreign??''; editNote.value=r.note||''; editModal.classList.add('show');
+  editId.value=r.id; editBank.value=r.bank; if(r.bank==='中信' && r.card && !Array.from(editCard.options).some(o=>o.value===r.card)){const option=new Option(r.card,r.card);editCard.add(option);} editCard.value=r.bank==='中信'?(r.card||APP_CONFIG.banks['中信'].cards[0]):APP_CONFIG.banks['中信'].cards[0]; ccUpdateEditCardVisibility(); editDate.value=r.date; editStatus.value=r.status||'刷'; editItem.value=r.item; editTwd.value=r.twd??''; editCurrency.value=Number(r.foreign)>0?(r.currency||''):''; editForeign.value=Number(r.foreign)>0?r.foreign:''; editNote.value=r.note||''; editModal.classList.add('show');
 }
 closeEdit.addEventListener('click',()=>editModal.classList.remove('show'));
 editModal.addEventListener('click',e=>{ if(e.target===editModal) editModal.classList.remove('show'); });
