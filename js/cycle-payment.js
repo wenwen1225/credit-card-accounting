@@ -36,7 +36,7 @@ async function ccMarkCyclePaid(bank,y,m){
     const results=await Promise.all(years.map(year=>fetchCloudRecords(year)));
     const all=results.flatMap(x=>x.records);
     const selected=all.filter(r=>r.bank===bank && r.source?.sheetName===cycle.tab);
-    const inconsistent=selected.filter(r=>!inDateRange(r.date,cycle.s,cycle.e));
+    const inconsistent=selected.filter(r=>!inDateRange(r.date,cycle.s,cycle.e) && !/(?:^|[｜\n])\s*上期剩餘\s*(?:$|[｜\n])/.test(r.note||''));
     if(inconsistent.length)throw Error(`帳期分頁中有 ${inconsistent.length} 筆日期不符，為避免誤改請先核對 Sheet`);
     const pending=selected.filter(r=>(r.status||'刷')==='刷');
     const unsafe=pending.filter(r=>!r.source?.rowHash);
