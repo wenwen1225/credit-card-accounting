@@ -107,8 +107,9 @@ renderRecords = function(){
           <div class="bank">${esc(r.bank)}${r.bank==='中信' && r.card?'・'+esc(r.card):''}</div>
         </div>
         <div class="money ${isRefund ? 'refund-money' : ''}">${transactionMoneyText(r)}</div>
-        ${r.foreign!==null && r.foreign!==undefined && r.foreign!=='' && Number.isFinite(Number(r.foreign)) ? `<div class="meta">外幣：${esc(r.currency||'未指定')} ${isRefund?'-':''}${esc(ccForeignDisplay(r.currency,Math.abs(Number(r.foreign))))}</div>` : ''}
+        ${r.currency && r.foreign!==null && r.foreign!==undefined && r.foreign!=='' && Number.isFinite(Number(r.foreign)) && Math.abs(Number(r.foreign))>0 ? `<div class="meta">外幣：${esc(r.currency||'未指定')} ${isRefund?'-':''}${esc(ccForeignDisplay(r.currency,Math.abs(Number(r.foreign))))}</div>` : ''}
         ${r.note ? `<div class="meta">備註：${esc(r.note)}</div>` : ''}
+        <div class="meta">交易類型：${isRefund?'退刷':'消費'}</div>
         ${isPending ? '<div class="pending-inline">待補台幣金額</div>' : ''}
 
         <div class="record-detail hidden" data-record-detail="${r.id}">
