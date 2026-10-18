@@ -34,7 +34,6 @@ function ccQueueCreate(record){
 }
 function ccQueueRender(){
   const panel=document.getElementById('ccQueuePanel');
-  const panelRecords=document.getElementById('ccQueueRecords');
   if(!panel)return;
   let queue;
   try{queue=ccQueueRead();}catch(err){panel.textContent=err.message;return;}
@@ -54,8 +53,7 @@ function ccQueueRender(){
     }).join('')+'</div>':'<small>目前沒有待同步紀錄</small>')+
     (uncertain?'<p class="cc-queue-warning">部分請求結果不明，為避免重複記帳，請先到 Google Sheet 查核，再決定是否重試。</p>':'')+
     receiptHtml+'<small>待同步資料只存在這台裝置的這個瀏覽器；清除網站資料或更換手機可能遺失。</small>';
-  for(const el of [panel,panelRecords]){
-    if(!el)continue;
+  for(const el of [panel]){
     el.innerHTML=html;
     el.querySelector('.cc-queue-sync')?.addEventListener('click',ccQueueSync);
     el.querySelectorAll('[data-cc-remove]').forEach(btn=>btn.addEventListener('click',()=>{
