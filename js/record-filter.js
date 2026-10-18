@@ -48,6 +48,12 @@ function updatePendingCount(){
   const count = contextList.filter(isPendingAmount).length;
   pendingCountBadge.textContent = String(count);
   pendingCountBadge.classList.toggle('hidden', count === 0);
+  const pendingTab=recordStateTabs?.querySelector('[data-state="pending"]');
+  if(pendingTab)pendingTab.classList.toggle('hidden',count===0);
+  if(count===0 && recordStateFilter==='pending'){
+    recordStateFilter='all';
+    recordStateTabs?.querySelectorAll('.chip').forEach(btn=>btn.classList.toggle('active',btn.dataset.state==='all'));
+  }
 }
 
 function bindRecordExpanders(){
@@ -98,15 +104,16 @@ renderRecords = function(){
       <div class="record ${bankClass(r.bank)} ${isRefund ? 'refund-record' : ''}">
         <div class="rtop">
           <div><div class="date">${esc(r.date)}</div><div class="item">${isRefund ? '<span class="refund-badge">退刷</span>' : ''}${esc(r.item)}</div></div>
-          <div class="bank">${esc(r.bank)}</div>
+          <div class="bank">${esc(r.bank)}${r.bank==='中信' && r.card?'・'+esc(r.card):''}</div>
         </div>
         <div class="money ${isRefund ? 'refund-money' : ''}">${transactionMoneyText(r)}</div>
+        ${r.foreign!==null && r.foreign!==undefined && r.foreign!=='' && Number.isFinite(Number(r.foreign)) ? `<div class="meta">外幣：${esc(r.currency||'未指定')} ${isRefund?'-':''}${esc(ccForeignDisplay(r.currency,Math.abs(Number(r.foreign))))}</div>` : ''}
+        ${r.note ? `<div class="meta">備註：${esc(r.note)}</div>` : ''}
         ${isPending ? '<div class="pending-inline">待補台幣金額</div>' : ''}
 
         <div class="record-detail hidden" data-record-detail="${r.id}">
-          ${r.card ? `<div class="meta">卡別：${esc(r.card)}</div>` : ''}
-          ${r.foreign ? `<div class="meta">外幣：${isRefund ? '-' : ''}${esc(r.currency)} ${Math.abs(Number(r.foreign)).toLocaleString()}</div>` : ''}
-          ${r.note ? `<div class="meta">備註：${esc(r.note)}</div>` : ''}
+          ${r.bank==='中信' && r.card ? `<div class="meta">卡別：${esc(r.card)}</div>` : ''}
+          <div class="meta">進度：${esc(r.status || '刷')}</div>
           <div class="meta">進度：${esc(r.status || '刷')}</div>
         </div>
 
