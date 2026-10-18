@@ -32,7 +32,7 @@ function updateTransactionTypeUi(){
       : '一般刷卡消費。';
   }
   if(twdInp){
-    twdInp.placeholder = isRefund ? '例如：1280（不用輸入負號）' : '可留空，之後再補';
+    twdInp.placeholder = isRefund ? '例如：1280（不用輸入負號）' : '請輸入台幣金額（必填）';
   }
   const saveText = isRefund ? '儲存退刷紀錄' : '儲存刷卡紀錄';
   if(saveBtn) saveBtn.textContent = saveText;
