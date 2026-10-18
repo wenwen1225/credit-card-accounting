@@ -42,3 +42,20 @@
 .weekly-track{height:12px;border-radius:99px;background:#edf4f8;overflow:hidden}
 .weekly-fill{height:100%;border-radius:99px;background:linear-gradient(90deg,#a6d8f2,#6eb5e3)}
 .weekly-fill.negative{background:linear-gradient(90deg,#edb9c5,#d78da0)}
+
+/* Annual monthly transaction counts (purchase and refund are counted as transactions). */
+.monthly-count-summary{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.monthly-count-summary strong{font-size:13px}
+.monthly-count-summary span{font-size:11px;color:var(--muted)}
+.monthly-count-scroll{overflow-x:auto;padding:0 0 6px}
+.monthly-count-chart{display:grid;grid-template-columns:repeat(12,minmax(29px,1fr));gap:5px;min-width:420px}
+.monthly-count-column{display:flex;flex-direction:column;align-items:center;gap:5px;font-size:10px;color:var(--muted)}
+.monthly-count-column strong{font-size:11px;color:var(--text,#304356);font-variant-numeric:tabular-nums}
+.monthly-count-column.active strong,.monthly-count-column.active>span{font-weight:900;color:#4779a0}
+.monthly-count-bar-area{height:105px;width:100%;display:flex;align-items:flex-end;justify-content:center;border-bottom:1px solid #e4edf2}
+.monthly-count-bar{width:min(22px,90%);border-radius:5px 5px 2px 2px;overflow:hidden;display:flex;flex-direction:column;justify-content:flex-end}
+.monthly-count-purchase{background:#83bde4;width:100%}
+.monthly-count-refund{background:#dca0b0;width:100%}
+.monthly-count-legend{display:flex;gap:15px;margin-top:10px;font-size:10px;color:var(--muted)}
+.monthly-count-legend span:first-child{color:#649fca}
+.monthly-count-legend span:last-child{color:#c58092}
