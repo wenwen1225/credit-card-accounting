@@ -91,7 +91,7 @@ function billingDataNotice(){
   return '正在讀取資料；目前金額尚未核對。';
 }
 function cycleMismatchNotice(bank,cycle){
-  const mismatch=records.filter(r=>r.bank===bank && r.source?.sheetName && inDateRange(r.date,cycle.s,cycle.e) && !belongsToCycle(r,cycle));
+  const mismatch=records.filter(r=>r.bank===bank && r.source?.sheetName && inDateRange(r.date,cycle.s,cycle.e) && !belongsToCycle(r,cycle) && !String(r.note||'').includes('上期剩餘'));
   return mismatch.length ? `<div class="billing-warning">帳期核對：有 ${mismatch.length} 筆日期落在本期、但實際位於其他 Sheet 分頁的紀錄，未計入本期。請檢查分頁與帳期，勿直接修改資料。</div>` : '';
 }
 function moneyText(value){
@@ -124,11 +124,27 @@ function effectiveCycleState(record){
   return billingOverrides[recordStableKey(record)] === 'next' ? 'next' : 'current';
 }
 
-function toggleRecordToNext(recordKey){
-  if(billingOverrides[recordKey] === 'next') delete billingOverrides[recordKey];
-  else billingOverrides[recordKey] = 'next';
-  saveBillingOverrides();
-  renderBillingOverview();
+let ccMoveCycleBusy=false;
+async function toggleRecordToNext(recordKey){
+  if(ccMoveCycleBusy)return;
+  const record=records.find(r=>recordStableKey(r)===recordKey);
+  if(!record?.source?.rowHash){alert('請先從 Sheet 更新資料，再搬移交易。');return;}
+  if(record.status!=='刷'){alert('只有狀態為「刷」的交易可以延至下期。');return;}
+  if(!navigator.onLine){alert('離線時無法搬移交易。');return;}
+  if(typeof ccQueueRead==='function' && ccQueueRead().some(x=>x.record?.bank===record.bank)){alert('這家銀行仍有待同步交易，請先處理。');return;}
+  if(!confirm('確定將「'+record.item+'」搬到下一期 Google Sheet？\n原刷卡日期不變，備註加上「上期剩餘」。'))return;
+  ccMoveCycleBusy=true;
+  try{
+    const response=await fetch(API_URL+'?action=health&_='+Date.now(),{cache:'no-store'});
+    const health=await response.json();
+    if(!health.ok || health.version!=='2.7.1')throw Error('後端尚未部署 v2.7.1；未執行搬移');
+    const result=await postToApi({action:'moveRecordToNextCycle',source:record.source});
+    if(!result.record?.source?.rowHash)throw Error('搬移結果尚未確認，請檢查 Sheet');
+    if(typeof ccMarkLocalMutation==='function')ccMarkLocalMutation();
+    await loadRecords({force:true});
+    alert('已搬至下一期 Google Sheet！\n備註：'+result.record.note);
+  }catch(err){alert('搬移未確認：'+err.message+'\n請先檢查兩期 Sheet，勿直接重複操作。');}
+  finally{ccMoveCycleBusy=false;renderBillingOverview();}
 }
 
 function toggleBillingDetail(bank){
@@ -183,9 +199,10 @@ function renderBillingOverview(){
     const closedRaw = records.filter(r => r.bank === bank && belongsToCycle(r, closedCycle));
     const openRaw = records.filter(r => r.bank === bank && belongsToCycle(r, openCycle));
 
-    const deferred = closedRaw.filter(r => effectiveCycleState(r) === 'next');
-    const payable = closedRaw.filter(r => effectiveCycleState(r) !== 'next');
-    const nextAccumulated = [...openRaw, ...deferred];
+    const deferred = [];
+    const payable = closedRaw;
+    const nextAccumulated = openRaw;
+    const carried = openRaw.filter(r=>String(r.note||'').includes('上期剩餘'));
 
     const payableMissing = payable.filter(r => r.twd === null || r.twd === '').length;
     const nextMissing = nextAccumulated.filter(r => r.twd === null || r.twd === '').length;
@@ -193,7 +210,7 @@ function renderBillingOverview(){
 
     const detailRows = closedRaw.map(r => {
       const key = recordStableKey(r);
-      const moved = effectiveCycleState(r) === 'next';
+      const moved = false;
       return `
         <div class="billing-row ${moved ? 'moved' : ''}">
           <div class="billing-row-main">
@@ -225,7 +242,7 @@ function renderBillingOverview(){
         ${cycleMismatchNotice(bank,openCycle)}
         ${pendingCycleHtml(bank,openCycle)}
         ${nextMissing ? `<div class="billing-warning soft">${accumulatingMonthLabel}另有 ${nextMissing} 筆尚未補台幣金額</div>` : ''}
-        ${deferred.length ? `<div class="billing-moved-note">已有 ${deferred.length} 筆未請款交易移至${accumulatingMonthLabel}</div>` : ''}
+        ${carried.length ? `<div class="billing-moved-note">${accumulatingMonthLabel}含 ${carried.length} 筆上期剩餘（已存於下一期 Sheet）</div>` : ''}
 
         <button type="button" class="billing-detail-btn" data-billing-bank="${esc(bank)}">
           ${isOpen ? '收起詳細' : '展開詳細'}
@@ -237,6 +254,7 @@ function renderBillingOverview(){
           </div>
           <div class="billing-detail-title">${payableMonthLabel}入帳明細（${closedRaw.length} 筆）</div>
           ${detailRows || `<div class="empty compact">${payableMonthLabel}沒有紀錄</div>`}
+          ${carried.length ? `<div class="billing-detail-title">${accumulatingMonthLabel}上期剩餘（${carried.length} 筆）</div>`+carried.map(r=>`<div class="billing-row moved"><div class="billing-row-main"><div class="billing-row-title">${esc(r.item)}</div><div class="billing-row-meta">原刷卡日 ${esc(r.date)}・${esc(r.note)}</div></div><strong>${moneyText(r.twd)}</strong></div>`).join('') : ''}
           <div class="billing-help">本期消費由實際交易明細加總；上期帳單以銀行帳單核對金額為準。尚未同步的新增紀錄不計入。</div>
         </div>
       </div>`);
