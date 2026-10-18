@@ -169,6 +169,38 @@ function renderTopTransactions(list){
     </div>`).join('') : '<div class="analysis-empty-small">這個月份目前沒有可排行的消費紀錄</div>';
 }
 
+
+function renderMonthlyTransactionCounts(year, selectedKey){
+  const root = document.getElementById('monthlyTransactionCounts');
+  if(!root) return;
+  const counts = Array.from({length:12}, (_, i) => ({
+    month: i+1, key: `${year}-${String(i+1).padStart(2,'0')}`, purchase:0, refund:0
+  }));
+  if(year){
+    (Array.isArray(records) ? records : []).forEach(r => {
+      const key = monthKey(r.date);
+      if(!key || !key.startsWith(year+'-')) return;
+      const index = Number(key.slice(5,7))-1;
+      if(index<0 || index>=12) return;
+      if(recordTransactionType(r)==='refund') counts[index].refund++;
+      else counts[index].purchase++;
+    });
+  }
+  const total = counts.reduce((sum,m)=>sum+m.purchase+m.refund,0);
+  const max = Math.max(1,...counts.map(m=>m.purchase+m.refund));
+  const selected = counts.find(m=>m.key===selectedKey);
+  const detail = selected ? `${selected.month}月：${selected.purchase+selected.refund} 筆（消費 ${selected.purchase}、退刷 ${selected.refund}）` : '';
+  root.innerHTML = `<div class="monthly-count-summary"><strong>${esc(year||'—')} 年合計 ${total} 筆</strong><span>${detail}</span></div>`+
+    '<div class="monthly-count-scroll"><div class="monthly-count-chart">'+counts.map(m=>{
+      const n=m.purchase+m.refund;
+      const height=n?Math.max(6,n/max*100):0;
+      const purchaseHeight=n?m.purchase/n*100:0;
+      const refundHeight=n?m.refund/n*100:0;
+      const active=m.key===selectedKey?' active':'';
+      return `<div class="monthly-count-column${active}" title="${m.month}月：${n}筆（消費${m.purchase}、退刷${m.refund}）"><strong>${n}</strong><div class="monthly-count-bar-area"><div class="monthly-count-bar" style="height:${height}%"><div class="monthly-count-purchase" style="height:${purchaseHeight}%"></div><div class="monthly-count-refund" style="height:${refundHeight}%"></div></div></div><span>${m.month}月</span></div>`;
+    }).join('')+'</div></div><div class="monthly-count-legend"><span>● 消費筆數</span><span>● 退刷筆數</span></div>';
+}
+
 function renderAnalysis(){
   const root = document.getElementById('analysisPage');
   if(!root) return;
@@ -217,6 +249,7 @@ function renderAnalysis(){
   if(pendingEl) pendingEl.textContent = `${pendingCount} 筆`;
   pendingEl?.closest('.analysis-stat')?.classList.toggle('hidden',pendingCount===0);
 
+  renderMonthlyTransactionCounts(analysisYear, selectedKey);
   renderMonthComparison(selectedKey, netTotal);
   renderWeeklyTrend(list);
   renderTopTransactions(list);
