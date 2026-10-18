@@ -215,6 +215,7 @@ function renderAnalysis(){
   if(refundEl) refundEl.textContent = analysisMoney(-refundTotal);
   if(netEl) netEl.textContent = analysisMoney(netTotal);
   if(pendingEl) pendingEl.textContent = `${pendingCount} 筆`;
+  pendingEl?.closest('.analysis-stat')?.classList.toggle('hidden',pendingCount===0);
 
   renderMonthComparison(selectedKey, netTotal);
   renderWeeklyTrend(list);
@@ -251,7 +252,8 @@ function renderAnalysis(){
 
   const cardMap = {};
   list.forEach(r => {
-    const label = r.card ? `${r.bank}・${r.card}` : r.bank;
+    if(r.bank!=='中信' || !r.card)return;
+    const label = r.card;
     cardMap[label] = (cardMap[label] || 0) + Math.abs(signedTwd(r));
   });
   const cards = Object.entries(cardMap).sort((a,b) => b[1] - a[1]).slice(0, 6);
