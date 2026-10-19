@@ -247,16 +247,26 @@ function buildMonthTabs(){
   monthTabs.querySelectorAll('.chip').forEach(btn => btn.addEventListener('click', () => { currentMonth = btn.dataset.m; buildMonthTabs(); renderRecords(); }));
 }
 
+// 日期由新到舊；無效日期排最後，不改動原始 Sheet 或紀錄 ID。
+function ccNewestFirst(a,b){
+  const x=normalizeClientDate(a?.date||'');
+  const y=normalizeClientDate(b?.date||'');
+  const valid=/^\d{4}-\d{2}-\d{2}$/;
+  return (valid.test(y)?y:'').localeCompare(valid.test(x)?x:'');
+}
+
 function renderRecords(){
   const q=searchInp.value.trim().toLowerCase();
   let list=records.filter(r=>monthKey(r.date)===currentMonth&&(bankFilter==='全部'||r.bank===bankFilter));
   if(q)list=list.filter(r=>(`${r.item} ${r.note} ${r.card}`).toLowerCase().includes(q));
+  list.sort(ccNewestFirst);
   let pending=[];
   try{
     pending=typeof ccQueueRead==='function'?ccQueueRead().filter(x=>{
       const r=x.record||{};
       return monthKey(r.date)===currentMonth&&(bankFilter==='全部'||r.bank===bankFilter)&&(!q||(`${r.item} ${r.note} ${r.card}`).toLowerCase().includes(q));
     }):[];
+    pending.sort((a,b)=>ccNewestFirst(a.record,b.record));
   }catch(err){console.warn('待同步紀錄讀取失敗',err);}
   countVal.textContent=list.length+pending.length;
   const total=list.reduce((s,r)=>s+(Number(r.twd)||0),0)+pending.reduce((s,x)=>s+(Number(x.record?.twd)||0)*(x.record?.transactionType==='refund'?-1:1),0);
@@ -279,7 +289,7 @@ function renderRecords(){
 }
 
 function renderPending(){
-  const list = records.filter(r => Number(r.foreign) > 0 && !(Number(r.twd) > 0));
+  const list = records.filter(r => Number(r.foreign) > 0 && !(Number(r.twd) > 0)).sort(ccNewestFirst);
   if(!list.length){ pendingList.innerHTML='<div class="empty">目前沒有待補台幣金額</div>'; return; }
   pendingList.innerHTML = list.map(r => `<div class="record ${bankClass(r.bank)}"><div class="date">${esc(r.date)}</div><div class="item">${esc(r.item)}</div><div class="money">${esc(r.currency)} ${Number(r.foreign).toLocaleString()}</div><div class="meta">${esc(r.bank)}・待補台幣</div><div class="rfoot"><span class="status">待補</span><button class="mini edit" onclick="openEdit(${r.id})">補金額</button></div></div>`).join('');
 }
