@@ -332,19 +332,42 @@ async function deleteRec(id){
 }
 modalDelete.addEventListener('click',()=>{ const id=Number(editId.value); editModal.classList.remove('show'); deleteRec(id); });
 
-function renderReminders(){
+// 繳費提醒只以最新 Google Sheet 實際帳期分頁的未繳金額為準；讀取失敗不猜測逾期。
+let ccReminderRequest=0;
+async function renderReminders(){
+  const request=++ccReminderRequest;
   const now=new Date(), y=now.getFullYear(), m=now.getMonth()+1, d=now.getDate();
-  let cards=[], future=[];
-  Object.entries(APP_CONFIG.banks).forEach(([bank,cfg])=>{
-    const due=cfg.paymentDueDay; if(!due) return;
-    const key=`${bank}-${y}-${pad(m)}`; if(paid[key]) return;
-    if(d>=due-1){
+  reminders.innerHTML='';
+  nextInfo.textContent='正在核對 Google Sheet 繳費帳期…';
+  if(!navigator.onLine){nextInfo.textContent='離線中，暫不顯示未經確認的繳費提醒。';return;}
+  try{
+    const candidates=Object.entries(APP_CONFIG.banks).filter(([bank,cfg])=>cfg.paymentDueDay && d>=cfg.paymentDueDay-1 && !paid[`${bank}-${y}-${pad(m)}`]);
+    if(!candidates.length){nextInfo.textContent='目前沒有即將到期的繳費提醒。';return;}
+    const cycles=candidates.map(([bank,cfg])=>({bank,cfg,cycle:ccPayableCycle(bank,y,m)}));
+    const years=[...new Set(cycles.flatMap(x=>[x.cycle.s.getFullYear(),x.cycle.e.getFullYear()]))];
+    const results=await Promise.all(years.map(year=>fetchCloudRecords(year)));
+    if(request!==ccReminderRequest)return;
+    const all=results.flatMap(x=>x.records);
+    const cards=[];
+    for(const {bank,cfg,cycle} of cycles){
+      // 沒有對應分頁或沒有未繳交易，絕不顯示提醒。
+      const selected=all.filter(r=>r.bank===bank && r.source?.sheetName===cycle.tab);
+      const unpaid=selected.filter(r=>(r.status||'刷')==='刷');
+      if(!unpaid.length || unpaid.some(r=>r.twd===null || r.twd==='' || !Number.isFinite(Number(r.twd))))continue;
+      const amount=unpaid.reduce((sum,r)=>sum+(r.transactionType==='refund'?-Math.abs(Number(r.twd)):Number(r.twd)),0);
+      if(!(amount>0))continue;
+      const due=cfg.paymentDueDay;
       const label=d===due-1?'明天要繳費':d===due?'今天到期':`已逾期 ${d-due} 天`;
-      cards.push(`<div class="remind ${d>=due?'due':''}"><div class="remTop"><div><div class="remTitle">${bank}信用卡繳費提醒</div><div class="remMeta">本月繳費期限：${m}/${due}</div></div><div class="tag">${label}</div></div><button class="donePay" onclick="markPaid('${bank}',${y},${m})">完成繳費</button></div>`);
-    } else future.push(`${bank}：${m}/${due-1} 開始提醒，${m}/${due} 到期`);
-  });
-  reminders.innerHTML=cards.join('');
-  nextInfo.innerHTML=Object.entries(APP_CONFIG.banks).map(([bank,cfg])=>`${esc(bank)}：每月 ${cfg.paymentDueDay} 日繳款截止`).join('<br>');
+      cards.push(`<div class="remind ${d>=due?'due':''}"><div class="remTop"><div><div class="remTitle">${esc(bank)}信用卡繳費提醒</div><div class="remMeta">繳費期限：${m}/${due}｜未繳 NT$${amount.toLocaleString('zh-TW')}</div></div><div class="tag">${label}</div></div><button class="donePay" onclick="markPaid('${bank}',${y},${m})">完成繳費</button></div>`);
+    }
+    reminders.innerHTML=cards.join('');
+    nextInfo.textContent=cards.length?'已依最新 Google Sheet 對應帳期及未繳交易核對。':'目前沒有經 Google Sheet 確認的應繳款項。';
+  }catch(err){
+    if(request!==ccReminderRequest)return;
+    reminders.innerHTML='';
+    nextInfo.textContent='無法核對最新 Google Sheet，暫停繳費提醒，避免誤報逾期。';
+    console.warn('繳費提醒核對失敗',err);
+  }
 }
 async function markPaid(bank,y,m){
   if(typeof ccMarkCyclePaid!=='function'){alert('帳期繳費模組尚未載入，請重新整理網頁。');return;}
