@@ -18,7 +18,7 @@ function ccCyclePaymentStatus(text){
 async function ccMarkCyclePaid(bank,y,m){
   if(ccCyclePaymentBusy)return;
   const key=`${bank}-${y}-${pad(m)}`;
-  if(paid[key])return;
+  // 不用裝置上的歷史 paid 註記阻止更新；每次以 Google Sheet 的最新交易為準。
   if(!navigator.onLine){alert('目前離線，無法確認 Google Sheet。請連線後再繳費。');return;}
   if(typeof ccQueueBusy!=='undefined' && ccQueueBusy){alert('仍有交易正在同步，請稍後再試。');return;}
   const queued=typeof ccQueueRead==='function'?ccQueueRead().filter(x=>x.record?.bank===bank):[];
@@ -33,8 +33,8 @@ async function ccMarkCyclePaid(bank,y,m){
   try{
     // 每次按下繳費，都先讀最新 Sheet，不能以可能過時的本機快取直接批次修改。
     const years=[...new Set([cycle.s.getFullYear(),cycle.e.getFullYear()])];
-    const results=await Promise.all(years.map(year=>fetchCloudRecords(year)));
-    const all=results.flatMap(x=>x.records);
+    const results=await Promise.all(years.map(year=>fetchCloudRecords(year,{cycleRead:true})));
+    const all=ccUniqueSourceRecords(results.flatMap(x=>x.records));
     const selected=all.filter(r=>r.bank===bank && r.source?.sheetName===cycle.tab);
     const inconsistent=selected.filter(r=>!inDateRange(r.date,cycle.s,cycle.e) && !/(?:^|[｜\n])\s*上期剩餘\s*(?:$|[｜\n])/.test(r.note||''));
     if(inconsistent.length)throw Error(`帳期分頁中有 ${inconsistent.length} 筆日期不符，為避免誤改請先核對 Sheet`);
@@ -43,6 +43,7 @@ async function ccMarkCyclePaid(bank,y,m){
     if(unsafe.length)throw Error(`有 ${unsafe.length} 筆缺少來源驗證資訊，無法安全更新`);
     total=pending.length;
     if(!selected.length)throw Error('這個帳期的 Sheet 沒有找到交易，為避免誤標已繳，請先確認帳期分頁');
+    if(!total)throw Error('Google Sheet 目前沒有狀態為「刷」的交易；沒有可更新的紀錄，不能僅憑本機狀態標記整期已繳。');
     const message=`${label}\n即將把本期 ${total} 筆「刷」改成「繳」，並同步 Google Sheet。\n${total===0?'本期沒有需要修改的「刷」紀錄，僅會完成繳費提醒。\n':''}確認執行？`;
     if(!confirm(message))return;
     for(const r of pending){
@@ -62,6 +63,7 @@ async function ccMarkCyclePaid(bank,y,m){
       saveRecordsCache(displayYear,'');
       renderCurrentRecords(`${bank}帳期已更新 ${completed}/${total} 筆`);
     }
+    // 僅在實際更新成功後保存本機操作記號；其他裝置仍以 Sheet 的「刷／繳」狀態判斷。
     paid[key]=true;
     persistPaid();
     renderReminders();

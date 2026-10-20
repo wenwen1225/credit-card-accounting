@@ -30,8 +30,10 @@ module.exports = async function handler(req, res) {
       const text = await response.text();
       const action = String(req.query?.action || '');
       const requestedYear = Number(req.query?.year || 0);
+      // 帳期專用唯讀查詢：保留 GAS 回傳的跨年度刷卡日期資料；一般年份查詢完全不變。
+      const cycleRead = action === 'records' && String(req.query?.cycleRead || '') === '1';
 
-      if (response.ok && action === 'records' && requestedYear) {
+      if (response.ok && action === 'records' && requestedYear && !cycleRead) {
         try {
           const data = JSON.parse(text);
           if (data.ok && Array.isArray(data.records)) {

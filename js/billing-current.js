@@ -10,9 +10,66 @@ const billingDetailOpen = {};
 
 // 使用者核對過的上一期帳單快照（只對 2026 年 10 月有效）。
 // 不把前期交易加總誤認為銀行實際出帳金額。
-const VERIFIED_PREVIOUS_STATEMENTS = {
-  '2026-10': { '中信': 62814, '國泰': 23245 }
-};
+const CC_STATEMENT_KEY='cc_verified_statements_v1';
+const CC_STATEMENT_SEED={'2026-10':{'中信':62814,'國泰':23245}};
+function ccLoadStatements(){try{const value=JSON.parse(localStorage.getItem(CC_STATEMENT_KEY));if(value&&typeof value==='object'&&!Array.isArray(value))return value;}catch(e){console.warn(e);}return JSON.parse(JSON.stringify(CC_STATEMENT_SEED));}
+let ccStatementArchive=ccLoadStatements();
+let ccStatementCloudReady=false;
+let ccStatementRevision='';
+let ccStatementCloudError='正在向雲端確認銀行核對金額…';
+let ccStatementWriteBusy=false;
+async function ccRefreshStatementArchive(){
+  try{
+    const response=await fetch(APP_CONFIG.apiUrl+'?action=verifiedStatements&_='+Date.now(),{cache:'no-store'});
+    if(!response.ok)throw Error('HTTP '+response.status);
+    const data=await response.json();
+    if(!data.ok||!data.archive||!data.revision)throw Error(data.error||'GAS 尚未部署 v2.7.2 或回傳格式不符');
+    if(!/^2\.7\.[2-9]$/.test(String(data.version||'')))throw Error('GAS 必須先部署 v2.7.2 才能跨裝置同步');
+    ccStatementArchive=data.archive;
+    ccStatementRevision=data.revision;
+    ccStatementCloudReady=true;
+    ccStatementCloudError='';
+    try{localStorage.setItem(CC_STATEMENT_KEY,JSON.stringify(data.archive));}catch(err){console.warn('瀏覽器快取未儲存',err);}
+  }catch(err){
+    ccStatementCloudReady=false;
+    ccStatementCloudError='無法同步銀行帳單核對金額：'+err.message+'。目前僅顯示本機舊資料，禁止編輯，避免兩台裝置互相覆蓋。';
+  }
+  if(typeof renderBillingOverview==='function')renderBillingOverview();
+}
+async function ccEditStatement(bank,month){
+  if(ccStatementWriteBusy)return;
+  if(!ccStatementCloudReady){
+    alert(ccStatementCloudError+'\n請先由 GAS 編輯器部署 v2.7.2，再重新開啟網站。');
+    return;
+  }
+  const old=ccStatementArchive[month]?.[bank];
+  const value=prompt(bank+' '+month+' 銀行實際帳單金額（跨裝置同步，不修改交易 Sheet）',old===undefined?'':String(old));
+  if(value===null)return;
+  const clean=value.replace(/,/g,'').trim();
+  if(!/^(?:0|[1-9]\d*)(?:\.\d{1,2})?$/.test(clean)||!Number.isFinite(Number(clean))||Number(clean)>1000000000){
+    alert('金額不正確，請輸入非負數（最多兩位小數）');return;
+  }
+  if(!confirm('確認把 '+bank+' '+month+' 銀行帳單核對金額 NT$'+Number(clean).toLocaleString()+' 儲存到雲端？\n不會修改任何刷卡交易。'))return;
+  const adminKey=prompt('請輸入 GAS 指令碼屬性的 CC_ADMIN_KEY 管理密碼（不會儲存在瀏覽器）：');
+  if(adminKey===null)return;
+  if(!adminKey){alert('未輸入密碼，已取消操作');return;}
+  ccStatementWriteBusy=true;
+  try{
+    const data=await postToApi({action:'updateVerifiedStatement',bank,month,amount:Number(clean),revision:ccStatementRevision,adminKey});
+    if(!data?.archive||!data?.revision)throw Error('雲端尚未確認儲存，請重新讀取核對金額');
+    ccStatementArchive=data.archive;
+    ccStatementRevision=data.revision;
+    ccStatementCloudReady=true;
+    ccStatementCloudError='';
+    try{localStorage.setItem(CC_STATEMENT_KEY,JSON.stringify(data.archive));}catch(err){console.warn('本機快取寫入失敗',err);}
+    renderBillingOverview();
+    alert('銀行帳單金額已儲存到雲端，可在其他裝置重新開啟網頁查看。');
+  }catch(err){
+    // 不確定是否已送達 GAS 時，一律重新讀取雲端；不可將本機值冒充雲端成功。
+    await ccRefreshStatementArchive();
+    alert('儲存未確認：'+err.message+'\n已重新核對雲端，請確認金額後再操作。');
+  }finally{ccStatementWriteBusy=false;}
+}
 
 function readBillingOverrides(){
   try{ return JSON.parse(localStorage.getItem(BILLING_OVERRIDE_KEY) || '{}'); }
@@ -137,7 +194,7 @@ async function toggleRecordToNext(recordKey){
   try{
     const response=await fetch(API_URL+'?action=health&_='+Date.now(),{cache:'no-store'});
     const health=await response.json();
-    if(!health.ok || health.version!=='2.7.1')throw Error('後端尚未部署 v2.7.1；未執行搬移');
+    if(!health.ok || !['2.7.1','2.7.2'].includes(String(health.version||'')))throw Error('後端版本不相容；未執行搬移');
     const result=await postToApi({action:'moveRecordToNextCycle',source:record.source});
     if(!result.record?.source?.rowHash)throw Error('搬移結果尚未確認，請檢查 Sheet');
     if(typeof ccMarkLocalMutation==='function')ccMarkLocalMutation();
@@ -191,7 +248,7 @@ function renderBillingOverview(){
       return;
     }
     const snapshotKey = dateToInput(now).slice(0,7);
-    const knownStatement = VERIFIED_PREVIOUS_STATEMENTS[snapshotKey]?.[bank];
+    const knownStatement = ccStatementArchive[snapshotKey]?.[bank];
     const payableMonthLabel = monthLabelFromCycle(closedCycle);
     const accumulatingMonthLabel = monthLabelFromCycle(openCycle);
 
@@ -233,6 +290,8 @@ function renderBillingOverview(){
 
         <div class="billing-cycle-label">${knownStatement !== undefined ? "上期帳單（已確認）" : "上期帳單（尚未核對）"}</div>
         <div class="billing-amount">${knownStatement !== undefined ? moneyText(knownStatement) : "待確認"}</div>
+        <button type="button" data-cc-statement="${esc(bank)}" data-month="${esc(snapshotKey)}">登記／修正銀行帳單金額</button>
+        <div class="billing-note">${ccStatementCloudReady ? "核對金額已由 GAS 雲端同步；不修改交易 Google Sheet。" : esc(ccStatementCloudError)}</div>
         ${payableMissing ? `<div class="billing-warning">另有 ${payableMissing} 筆尚未補台幣金額</div>` : ''}
 
         <div class="billing-next-box">
@@ -262,6 +321,7 @@ function renderBillingOverview(){
 
   root.innerHTML = cards.join('');
 
+  root.querySelectorAll('[data-cc-statement]').forEach(btn=>btn.addEventListener('click',()=>ccEditStatement(btn.dataset.ccStatement,btn.dataset.month)));
   root.querySelectorAll('[data-billing-bank]').forEach(btn => {
     btn.addEventListener('click', () => toggleBillingDetail(btn.dataset.billingBank));
   });
@@ -277,3 +337,6 @@ renderRecords = function(){
 };
 
 renderBillingOverview();
+
+// 讀取後端核對金額；GAS 尚未升級時只顯示本機舊值，絕不寫入真實交易表。
+void ccRefreshStatementArchive();
