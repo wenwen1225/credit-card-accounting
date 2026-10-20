@@ -106,8 +106,10 @@ async function fetchDataVersion(year){
   return String(data.dataVersion);
 }
 
-async function fetchCloudRecords(year){
-  const response = await fetch(`${API_URL}?action=records&year=${year}&_=${Date.now()}`, { cache:'no-store' });
+async function fetchCloudRecords(year,options={}){
+  // 僅供帳期核對使用；一般紀錄頁仍使用原本年份過濾。
+  const cycleRead = options.cycleRead === true ? '&cycleRead=1' : '';
+  const response = await fetch(`${API_URL}?action=records&year=${year}${cycleRead}&_=${Date.now()}`, { cache:'no-store' });
   if(!response.ok) throw new Error(`HTTP ${response.status}`);
   const data = await response.json();
   if(!data.ok) throw new Error(data.error || 'GAS 回傳失敗');
@@ -122,6 +124,16 @@ function ccMarkLocalMutation(){ccMutationEpoch++;}
 function ccSourceKey(source){
   if(!source || !source.spreadsheetId || !source.sheetName || !source.row)return '';
   return [source.spreadsheetId,source.sheetName,Number(source.row)].join('|');
+}
+// 跨年帳期以 Sheet 分頁為準：按來源列去重，避免前後年度查詢重複加總。
+function ccUniqueSourceRecords(items){
+  const seen=new Set();
+  return items.filter(r=>{
+    const key=ccSourceKey(r.source);
+    if(!key)return false; // 無來源資訊的資料不能安全用於繳費或帳期核對
+    if(seen.has(key))return false;
+    seen.add(key);return true;
+  });
 }
 function ccShowConfirmedWrite(record, response){
   const source=response?.record?.source;
