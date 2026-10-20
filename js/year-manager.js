@@ -55,7 +55,7 @@ async function ccPreviewNextCycle(){
     if(!res.ok)throw Error('HTTP '+res.status);
     const data=await res.json();
     if(!data.ok)throw Error(data.error||'查詢失敗');
-    if(!['2.5',String(APP_CONFIG.version.expectedBackend)].includes(String(data.version||'').replace(/^v/i,'')))throw Error('下一期分頁 API 版本不相容：'+(data.version||'未知'));
+    if(!['2.5','2.7.2',String(APP_CONFIG.version.expectedBackend)].includes(String(data.version||'').replace(/^v/i,'')))throw Error('下一期分頁 API 版本不相容：'+(data.version||'未知'));
     if(typeof data.latestTab!=='string'||typeof data.nextTab!=='string'||!data.nextTab.trim())throw Error('後端未回傳有效的下一期分頁資訊');
     ccNextCyclePreview={bank,year,latestTab:data.latestTab,nextTab:data.nextTab};
     if(ccCycleStatus)ccCycleStatus.textContent=bank+'：最新 '+data.latestTab+' → 下一期 '+data.nextTab;
