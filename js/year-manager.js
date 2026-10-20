@@ -15,7 +15,7 @@ async function ccRefreshYears(){
     if(typeof buildMonthTabs==='function')buildMonthTabs();
     return data;
   }catch(err){
-    if(status)status.textContent='年度管理尚未連線：請先部署 GAS v1.1（'+err.message+'）';
+    if(status)status.textContent='年度管理查詢失敗（'+err.message+'）';
     return null;
   }
 }
@@ -55,7 +55,8 @@ async function ccPreviewNextCycle(){
     if(!res.ok)throw Error('HTTP '+res.status);
     const data=await res.json();
     if(!data.ok)throw Error(data.error||'查詢失敗');
-    if(data.version!=='2.5')throw Error('後端尚未更新到 GAS v2.2');
+    if(!['2.5',String(APP_CONFIG.version.expectedBackend)].includes(String(data.version||'').replace(/^v/i,'')))throw Error('下一期分頁 API 版本不相容：'+(data.version||'未知'));
+    if(typeof data.latestTab!=='string'||typeof data.nextTab!=='string'||!data.nextTab.trim())throw Error('後端未回傳有效的下一期分頁資訊');
     ccNextCyclePreview={bank,year,latestTab:data.latestTab,nextTab:data.nextTab};
     if(ccCycleStatus)ccCycleStatus.textContent=bank+'：最新 '+data.latestTab+' → 下一期 '+data.nextTab;
     if(ccCycleCreateBtn){ccCycleCreateBtn.disabled=false;ccCycleCreateBtn.textContent='建立 '+data.nextTab+' 分頁';}
