@@ -215,7 +215,7 @@ async function toggleRecordToNext(recordKey){
   try{
     const response=await fetch(API_URL+'?action=health&_='+Date.now(),{cache:'no-store'});
     const health=await response.json();
-    if(!health.ok || !['2.7.1','2.7.2'].includes(String(health.version||'')))throw Error('後端版本不相容；未執行搬移');
+    if(!health.ok || !['2.7.1','2.7.2','2.7.3'].includes(String(health.version||'')))throw Error('後端版本不相容；未執行搬移');
     const result=await postToApi({action:'moveRecordToNextCycle',source:record.source});
     if(!result.record?.source?.rowHash)throw Error('搬移結果尚未確認，請檢查 Sheet');
     if(typeof ccMarkLocalMutation==='function')ccMarkLocalMutation();
