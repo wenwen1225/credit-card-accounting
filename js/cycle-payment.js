@@ -33,8 +33,8 @@ async function ccMarkCyclePaid(bank,y,m){
   try{
     // 每次按下繳費，都先讀最新 Sheet，不能以可能過時的本機快取直接批次修改。
     const years=[...new Set([cycle.s.getFullYear(),cycle.e.getFullYear()])];
-    const results=await Promise.all(years.map(year=>fetchCloudRecords(year)));
-    const all=results.flatMap(x=>x.records);
+    const results=await Promise.all(years.map(year=>fetchCloudRecords(year,{cycleRead:true})));
+    const all=ccUniqueSourceRecords(results.flatMap(x=>x.records));
     const selected=all.filter(r=>r.bank===bank && r.source?.sheetName===cycle.tab);
     const inconsistent=selected.filter(r=>!inDateRange(r.date,cycle.s,cycle.e) && !/(?:^|[｜\n])\s*上期剩餘\s*(?:$|[｜\n])/.test(r.note||''));
     if(inconsistent.length)throw Error(`帳期分頁中有 ${inconsistent.length} 筆日期不符，為避免誤改請先核對 Sheet`);
