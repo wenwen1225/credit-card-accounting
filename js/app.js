@@ -356,9 +356,9 @@ async function renderReminders(){
     if(!candidates.length){nextInfo.textContent='目前沒有即將到期的繳費提醒。';return;}
     const cycles=candidates.map(([bank,cfg])=>({bank,cfg,cycle:ccPayableCycle(bank,y,m)}));
     const years=[...new Set(cycles.flatMap(x=>[x.cycle.s.getFullYear(),x.cycle.e.getFullYear()]))];
-    const results=await Promise.all(years.map(year=>fetchCloudRecords(year)));
+    const results=await Promise.all(years.map(year=>fetchCloudRecords(year,{cycleRead:true})));
     if(request!==ccReminderRequest)return;
-    const all=results.flatMap(x=>x.records);
+    const all=ccUniqueSourceRecords(results.flatMap(x=>x.records));
     const cards=[];
     for(const {bank,cfg,cycle} of cycles){
       // 沒有對應分頁或沒有未繳交易，絕不顯示提醒。
