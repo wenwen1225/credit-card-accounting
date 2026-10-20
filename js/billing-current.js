@@ -18,6 +18,10 @@ let ccStatementCloudReady=false;
 let ccStatementRevision='';
 let ccStatementCloudError='正在向雲端確認銀行核對金額…';
 let ccStatementWriteBusy=false;
+let ccStatementBackendVersion='';
+const CC_DEVICE_TOKEN_KEY='cc_statement_device_token_v1';
+function ccStatementDeviceToken(){try{return localStorage.getItem(CC_DEVICE_TOKEN_KEY)||'';}catch(_){return '';}}
+function ccStatementDeviceName(){return /iPhone|iPad/i.test(navigator.userAgent||'')?'iPhone／iPad':/Mac/i.test(navigator.userAgent||'')?'Mac 瀏覽器':'私人瀏覽器';}
 async function ccRefreshStatementArchive(){
   try{
     const response=await fetch(APP_CONFIG.apiUrl+'?action=verifiedStatements&_='+Date.now(),{cache:'no-store'});
@@ -27,6 +31,7 @@ async function ccRefreshStatementArchive(){
     if(!/^2\.7\.[2-9]$/.test(String(data.version||'')))throw Error('GAS 必須先部署 v2.7.2 才能跨裝置同步');
     ccStatementArchive=data.archive;
     ccStatementRevision=data.revision;
+    ccStatementBackendVersion=String(data.version||'');
     ccStatementCloudReady=true;
     ccStatementCloudError='';
     try{localStorage.setItem(CC_STATEMENT_KEY,JSON.stringify(data.archive));}catch(err){console.warn('瀏覽器快取未儲存',err);}
@@ -50,12 +55,27 @@ async function ccEditStatement(bank,month){
     alert('金額不正確，請輸入非負數（最多兩位小數）');return;
   }
   if(!confirm('確認把 '+bank+' '+month+' 銀行帳單核對金額 NT$'+Number(clean).toLocaleString()+' 儲存到雲端？\n不會修改任何刷卡交易。'))return;
-  const adminKey=prompt('請輸入 GAS 指令碼屬性的 CC_ADMIN_KEY 管理密碼（不會儲存在瀏覽器）：');
-  if(adminKey===null)return;
-  if(!adminKey){alert('未輸入密碼，已取消操作');return;}
   ccStatementWriteBusy=true;
   try{
-    const data=await postToApi({action:'updateVerifiedStatement',bank,month,amount:Number(clean),revision:ccStatementRevision,adminKey});
+    const canAuthorize=ccStatementBackendVersion==='2.7.3';
+    let deviceToken=canAuthorize?ccStatementDeviceToken():'';
+    let adminKey='';
+    if(!deviceToken){
+      adminKey=prompt(canAuthorize?'首次在這台裝置修改銀行帳單，請輸入一次 GAS 管理密碼以授權這台裝置。之後 180 天內不用重複輸入：':'請輸入 GAS 管理密碼：');
+      if(adminKey===null)return;
+      if(!adminKey)throw Error('未輸入管理密碼，已取消操作');
+      if(canAuthorize){
+        // 先確認此瀏覽器可以持久保存權杖，避免產生無法再使用的裝置授權。
+        localStorage.setItem(CC_DEVICE_TOKEN_KEY+'_probe','ok');
+        localStorage.removeItem(CC_DEVICE_TOKEN_KEY+'_probe');
+        const auth=await postToApi({action:'authorizeStatementDevice',adminKey,deviceLabel:ccStatementDeviceName()});
+        if(!auth?.deviceToken)throw Error('裝置授權尚未完成');
+        deviceToken=auth.deviceToken;
+        localStorage.setItem(CC_DEVICE_TOKEN_KEY,deviceToken);
+        adminKey=''; // 不保存管理密碼
+      }
+    }
+    const data=await postToApi({action:'updateVerifiedStatement',bank,month,amount:Number(clean),revision:ccStatementRevision,...(deviceToken?{deviceToken}:{adminKey})});
     if(!data?.archive||!data?.revision)throw Error('雲端尚未確認儲存，請重新讀取核對金額');
     ccStatementArchive=data.archive;
     ccStatementRevision=data.revision;
@@ -66,6 +86,7 @@ async function ccEditStatement(bank,month){
     alert('銀行帳單金額已儲存到雲端，可在其他裝置重新開啟網頁查看。');
   }catch(err){
     // 不確定是否已送達 GAS 時，一律重新讀取雲端；不可將本機值冒充雲端成功。
+    if(/裝置授權已過期|裝置授權無效|裝置授權已.*撤銷/.test(String(err.message||''))){try{localStorage.removeItem(CC_DEVICE_TOKEN_KEY);}catch(_){}}
     await ccRefreshStatementArchive();
     alert('儲存未確認：'+err.message+'\n已重新核對雲端，請確認金額後再操作。');
   }finally{ccStatementWriteBusy=false;}
