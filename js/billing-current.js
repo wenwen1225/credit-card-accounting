@@ -24,7 +24,7 @@ async function ccRefreshStatementArchive(){
     if(!response.ok)throw Error('HTTP '+response.status);
     const data=await response.json();
     if(!data.ok||!data.archive||!data.revision)throw Error(data.error||'GAS 尚未部署 v2.7.2 或回傳格式不符');
-    if(!/^2\\.7\\.[2-9]$/.test(String(data.version||'')))throw Error('GAS 必須先部署 v2.7.2 才能跨裝置同步');
+    if(!/^2\.7\.[2-9]$/.test(String(data.version||'')))throw Error('GAS 必須先部署 v2.7.2 才能跨裝置同步');
     ccStatementArchive=data.archive;
     ccStatementRevision=data.revision;
     ccStatementCloudReady=true;
@@ -39,17 +39,17 @@ async function ccRefreshStatementArchive(){
 async function ccEditStatement(bank,month){
   if(ccStatementWriteBusy)return;
   if(!ccStatementCloudReady){
-    alert(ccStatementCloudError+'\\n請先由 GAS 編輯器部署 v2.7.2，再重新開啟網站。');
+    alert(ccStatementCloudError+'\n請先由 GAS 編輯器部署 v2.7.2，再重新開啟網站。');
     return;
   }
   const old=ccStatementArchive[month]?.[bank];
   const value=prompt(bank+' '+month+' 銀行實際帳單金額（跨裝置同步，不修改交易 Sheet）',old===undefined?'':String(old));
   if(value===null)return;
   const clean=value.replace(/,/g,'').trim();
-  if(!/^(?:0|[1-9]\\d*)(?:\\.\\d{1,2})?$/.test(clean)||!Number.isFinite(Number(clean))||Number(clean)>1000000000){
+  if(!/^(?:0|[1-9]\d*)(?:\.\d{1,2})?$/.test(clean)||!Number.isFinite(Number(clean))||Number(clean)>1000000000){
     alert('金額不正確，請輸入非負數（最多兩位小數）');return;
   }
-  if(!confirm('確認把 '+bank+' '+month+' 銀行帳單核對金額 NT$'+Number(clean).toLocaleString()+' 儲存到雲端？\\n不會修改任何刷卡交易。'))return;
+  if(!confirm('確認把 '+bank+' '+month+' 銀行帳單核對金額 NT$'+Number(clean).toLocaleString()+' 儲存到雲端？\n不會修改任何刷卡交易。'))return;
   const adminKey=prompt('請輸入 GAS 指令碼屬性的 CC_ADMIN_KEY 管理密碼（不會儲存在瀏覽器）：');
   if(adminKey===null)return;
   if(!adminKey){alert('未輸入密碼，已取消操作');return;}
@@ -67,7 +67,7 @@ async function ccEditStatement(bank,month){
   }catch(err){
     // 不確定是否已送達 GAS 時，一律重新讀取雲端；不可將本機值冒充雲端成功。
     await ccRefreshStatementArchive();
-    alert('儲存未確認：'+err.message+'\\n已重新核對雲端，請確認金額後再操作。');
+    alert('儲存未確認：'+err.message+'\n已重新核對雲端，請確認金額後再操作。');
   }finally{ccStatementWriteBusy=false;}
 }
 
