@@ -180,6 +180,21 @@ function rangeText(cycle){
   return `${fmtDate(cycle.s)}～${fmtDate(cycle.e)}`;
 }
 
+// 以已結帳帳期的結束日推算其下一個繳款日，不使用今天的月份。
+function ccDueDateForClosedCycle(cycle,paymentDueDay){
+  if(!cycle || !Number.isInteger(Number(paymentDueDay)))return null;
+  const end=cycle.e;
+  let due=new Date(end.getFullYear(),end.getMonth(),Number(paymentDueDay),12);
+  if(due<=end)due=new Date(end.getFullYear(),end.getMonth()+1,Number(paymentDueDay),12);
+  // 防止 2/30 等無效日期自動溢位。
+  if(due.getDate()!==Number(paymentDueDay))return null;
+  return due;
+}
+function ccDueDateLabel(cycle,paymentDueDay){
+  const due=ccDueDateForClosedCycle(cycle,paymentDueDay);
+  return due?(due.getMonth()+1)+'/'+due.getDate()+' 繳款':'繳款日待確認';
+}
+
 function monthLabelFromCycle(cycle){
   return `${cycle.s.getMonth()+1}月`;
 }
@@ -270,6 +285,7 @@ function renderBillingOverview(){
     }
     const snapshotKey = dateToInput(now).slice(0,7);
     const knownStatement = ccStatementArchive[snapshotKey]?.[bank];
+    const verified = typeof knownStatement === 'number' && Number.isFinite(knownStatement);
     const payableMonthLabel = monthLabelFromCycle(closedCycle);
     const accumulatingMonthLabel = monthLabelFromCycle(openCycle);
 
@@ -282,7 +298,8 @@ function renderBillingOverview(){
     const nextAccumulated = openRaw;
     const carried = openRaw.filter(r=>String(r.note||'').includes('上期剩餘'));
 
-    const payableMissing = payable.filter(r => r.twd === null || r.twd === '').length;
+    const payableMissing = payable.filter(r => r.twd === null || r.twd === '' || !Number.isFinite(Number(r.twd))).length;
+    const estimatedPayable = sumTwd(payable);
     const nextMissing = nextAccumulated.filter(r => r.twd === null || r.twd === '').length;
     const isOpen = Boolean(billingDetailOpen[bank]);
 
@@ -306,11 +323,12 @@ function renderBillingOverview(){
       <div class="billing-card ${bankClass(bank)}">
         <div class="billing-head">
           <strong>${esc(bank)}</strong>
-          <span>${cfg.paymentDueDay ? `${now.getMonth()+1}/${cfg.paymentDueDay} 繳款` : '繳款日待確認'}</span>
+          <span>${ccDueDateLabel(closedCycle,cfg.paymentDueDay)}</span>
         </div>
 
-        <div class="billing-cycle-label">${knownStatement !== undefined ? "上期帳單（已確認）" : "上期帳單（尚未核對）"}</div>
-        <div class="billing-amount">${knownStatement !== undefined ? moneyText(knownStatement) : "待確認"}</div>
+        <div class="billing-cycle-label">${verified ? "上期帳單（已確認）" : "上期帳單（尚未核對）"}</div>
+        <div class="billing-amount">${verified ? moneyText(knownStatement) : (payable.length && !payableMissing ? moneyText(estimatedPayable) : "待確認")}</div>
+        ${!verified && payable.length && !payableMissing ? '<div class="billing-warning">以上為 Google Sheet 上期交易明細加總（估算），尚非銀行正式帳單；請核對後再登記。</div>' : ''}
         <button type="button" data-cc-statement="${esc(bank)}" data-month="${esc(snapshotKey)}">登記／修正銀行帳單金額</button>
         <div class="billing-note">${ccStatementCloudReady ? "核對金額已由 GAS 雲端同步；不修改交易 Google Sheet。" : esc(ccStatementCloudError)}</div>
         ${payableMissing ? `<div class="billing-warning">另有 ${payableMissing} 筆尚未補台幣金額</div>` : ''}
