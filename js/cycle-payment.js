@@ -78,7 +78,7 @@ async function ccFinishCycleBill(bank,month){
       throw Error('本期有 '+misplacedStatusRows.length+' 筆跨帳期入帳交易（例如 10/06 海外手續費），GAS v2.7.4 無法安全更新其「刷／繳」。請先更新 GAS v2.7.5，再重新按一次；已搬移的「上期剩餘」會保留');
     const pending=currentRows.filter(r=>(r.status||'刷')==='刷');
     planned=pending.length;
-    if(alreadyPaid && !deferred.length && !pending.length){alert(bank+' '+month+' 已完成繳費及 Sheet 進度同步，不需重複操作。');return;}
+    if(alreadyPaid && !deferred.length && !pending.length){if(typeof renderReminders==='function')await renderReminders();alert(bank+' '+month+' 已完成繳費，Sheet 全部交易也已是「繳」，不需重複操作。');return;}
     const names=deferred.map(r=>'・'+r.item+'　NT$'+Number(r.twd).toLocaleString('zh-TW')).join('\n');
     const confirmText=bank+' '+month+' 帳單 NT$'+amount.toLocaleString('zh-TW')+
       (alreadyPaid?'\n銀行繳費：已確認（不會重複繳費）':'\n銀行繳費：確認你已實際繳納這期帳單')+
@@ -122,6 +122,12 @@ async function ccFinishCycleBill(bank,month){
       updated++;
       if(typeof ccMarkLocalMutation==='function')ccMarkLocalMutation();
     }
+    // 真正再次從 Sheet 核對，而不是僅憑 POST 成功或瀏覽器快取宣稱同步完成。
+    const verifiedRows=await fetchCycle();
+    const unconfirmed=verifiedRows.filter(r=>(r.status||'刷')!=='繳');
+    if(unconfirmed.length)throw Error('Google Sheet 回讀後仍有 '+unconfirmed.length+' 筆未顯示「繳」，請確認 G 欄狀態；本次已更新 '+updated+' 筆');
+    if(Math.round((ccBillAmount(verifiedRows)-amount)*100)!==0)
+      throw Error('Sheet 回讀金額與銀行帳單不符，請核對後再操作');
     await loadRecords({force:true});
     if(typeof renderReminders==='function')await renderReminders();
     if(typeof renderBillingOverview==='function')renderBillingOverview();
