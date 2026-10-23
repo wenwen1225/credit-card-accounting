@@ -337,7 +337,7 @@ function renderBillingOverview(){
         <div class="billing-cycle-label">${bankPaid ? "上期銀行帳單（已確認繳費）" : verified ? "上期帳單（已確認）" : "上期帳單（尚未核對）"}</div>
         <div class="billing-amount">${verified ? moneyText(knownStatement) : (payable.length && !payableMissing ? moneyText(estimatedPayable) : "待確認")}</div>
         ${bankPaid ? `<div class="billing-note">銀行帳單已確認繳納（${esc(paymentRecord.confirmedAt||"日期未提供")}）。</div>` : ""}
-        ${bankPaid && closedRaw.some(r=>(r.status||"刷")==="刷") ? `<button type="button" class="billing-sync-paid" data-bank="${esc(bank)}" data-month="${esc(snapshotKey)}">完成本期帳務整理</button><div class="billing-note">銀行已繳費，不必重新確認；按一次即可核對延後請款並同步本期交易進度。</div>` : bankPaid ? `<div class="billing-note">本期銀行帳單已繳，Sheet 交易進度已完成。</div>` : ""}
+        ${bankPaid ? `<div class="billing-note">${closedRaw.some(r=>(r.status||"刷")==="刷") ? "銀行已繳費；若本期交易尚未改為「繳」，請使用頁面上方的帳務提醒完成同步。" : "銀行已繳費；本期交易進度已同步。"}</div>` : ""}
         ${!verified && payable.length && !payableMissing ? '<div class="billing-warning">以上為 Google Sheet 上期交易明細加總（估算），尚非銀行正式帳單；請核對後再登記。</div>' : ''}
         <button type="button" data-cc-statement="${esc(bank)}" data-month="${esc(snapshotKey)}">登記／修正銀行帳單金額</button>
         <div class="billing-note">${ccStatementCloudReady ? "核對金額已由 GAS 雲端同步；不修改交易 Google Sheet。" : esc(ccStatementCloudError)}</div>
@@ -371,7 +371,6 @@ function renderBillingOverview(){
   root.innerHTML = cards.join('');
 
   root.querySelectorAll('[data-cc-statement]').forEach(btn=>btn.addEventListener('click',()=>ccEditStatement(btn.dataset.ccStatement,btn.dataset.month)));
-  root.querySelectorAll('.billing-sync-paid').forEach(btn=>btn.addEventListener('click',()=>ccSyncPaidTransactions(btn.dataset.bank,btn.dataset.month)));
   root.querySelectorAll('[data-billing-bank]').forEach(btn => {
     btn.addEventListener('click', () => toggleBillingDetail(btn.dataset.billingBank));
   });
