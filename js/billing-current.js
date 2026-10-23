@@ -336,8 +336,8 @@ function renderBillingOverview(){
 
         <div class="billing-cycle-label">${bankPaid ? "上期銀行帳單（已確認繳費）" : verified ? "上期帳單（已確認）" : "上期帳單（尚未核對）"}</div>
         <div class="billing-amount">${verified ? moneyText(knownStatement) : (payable.length && !payableMissing ? moneyText(estimatedPayable) : "待確認")}</div>
-        ${bankPaid ? `<div class="billing-note">此期銀行帳單已確認繳納（${esc(paymentRecord.confirmedAt||"日期未提供")}）；交易的刷／繳狀態仍獨立管理。</div>` : ""}
-        ${bankPaid ? `<button type="button" class="billing-sync-paid" data-bank="${esc(bank)}" data-month="${esc(snapshotKey)}">同步本期已繳交易至 Sheet</button><div class="billing-note">請先將延後請款的交易搬至下一期；系統會核對本期金額相符後，才把本期交易的「刷」改成「繳」。</div>` : ""}
+        ${bankPaid ? `<div class="billing-note">銀行帳單已確認繳納（${esc(paymentRecord.confirmedAt||"日期未提供")}）。</div>` : ""}
+        ${bankPaid && closedRaw.some(r=>(r.status||"刷")==="刷") ? `<button type="button" class="billing-sync-paid" data-bank="${esc(bank)}" data-month="${esc(snapshotKey)}">完成本期帳務整理</button><div class="billing-note">銀行已繳費，不必重新確認；按一次即可核對延後請款並同步本期交易進度。</div>` : bankPaid ? `<div class="billing-note">本期銀行帳單已繳，Sheet 交易進度已完成。</div>` : ""}
         ${!verified && payable.length && !payableMissing ? '<div class="billing-warning">以上為 Google Sheet 上期交易明細加總（估算），尚非銀行正式帳單；請核對後再登記。</div>' : ''}
         <button type="button" data-cc-statement="${esc(bank)}" data-month="${esc(snapshotKey)}">登記／修正銀行帳單金額</button>
         <div class="billing-note">${ccStatementCloudReady ? "核對金額已由 GAS 雲端同步；不修改交易 Google Sheet。" : esc(ccStatementCloudError)}</div>

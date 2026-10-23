@@ -1,11 +1,11 @@
-// 銀行已核對帳單繳費確認：與交易「刷／繳」分離，延後請款不會被誤標已繳。
-// 只寫 GAS v2.7.4 Script Properties 的銀行繳費確認，不動任何交易 Sheet。
+// 單一帳單完成流程：先核對本期應繳及下期交易，確認後才寫入。
+// 已確認銀行繳費者可重按來補完 Sheet 同步，不會重複記錄銀行繳費。
 let ccCyclePaymentBusy=false;
 function ccPayableCycle(bank,y,m){
   const cfg=APP_CONFIG.banks[bank];
   if(!cfg?.cycleStartDay || !cfg?.paymentDueDay)throw Error('找不到銀行帳期規則');
   const dueDate=new Date(y,m-1,cfg.paymentDueDay,12);
-  if(cfg.firstPaymentDueDate && dateToInput(dueDate)<cfg.firstPaymentDueDate)throw Error(bank+' 第一筆帳單從 '+cfg.firstPaymentDueDate+' 才開始繳款，不能標記更早月份');
+  if(cfg.firstPaymentDueDate && dateToInput(dueDate)<cfg.firstPaymentDueDate)throw Error(bank+' 第一筆帳單從 '+cfg.firstPaymentDueDate+' 才開始繳款');
   if(dueDate.getMonth()!==m-1)throw Error('繳費月份不正確');
   const current=getBankCycle(bank,dateToInput(dueDate));
   const lastDay=new Date(current.s);
@@ -16,113 +16,120 @@ function ccCyclePaymentStatus(message){
   const el=document.getElementById('ccCyclePaymentStatus');
   if(el)el.textContent=message;
 }
+const CC_DEFER_NOTE=/(?:^|[｜\s])下期(?:$|[｜\s])|延至下期|延下期/;
+function ccBillAmount(rows){
+  return rows.reduce((n,r)=>n+(r.transactionType==='refund'?-Math.abs(Number(r.twd)):Number(r.twd)),0);
+}
 async function ccMarkCyclePaid(bank,y,m){
+  return ccFinishCycleBill(bank,y+'-'+pad(m));
+}
+async function ccSyncPaidTransactions(bank,month){
+  // 舊版已繳帳單的補做入口，使用完全相同的單一流程。
+  return ccFinishCycleBill(bank,month);
+}
+async function ccFinishCycleBill(bank,month){
   if(ccCyclePaymentBusy)return;
-  if(!navigator.onLine){alert('離線時無法確認銀行帳單繳費，請連線後再試');return;}
+  if(!/^\d{4}-\d{2}$/.test(month)){alert('帳單月份不正確');return;}
+  if(!APP_CONFIG.banks[bank] || !navigator.onLine){alert('銀行設定錯誤或目前離線');return;}
+  if(typeof ccQueueBusy!=='undefined' && ccQueueBusy){alert('尚有交易正在同步，請先完成');return;}
+  const queue=typeof ccQueueRead==='function'?ccQueueRead().filter(x=>x.record?.bank===bank):[];
+  if(queue.length){alert(bank+' 仍有 '+queue.length+' 筆待同步交易，請先處理');return;}
   ccCyclePaymentBusy=true;
-  const button=[...document.querySelectorAll('.donePay')].find(x=>x.getAttribute('onclick')?.includes("markPaid('"+bank+"'"));
-  if(button){button.disabled=true;button.textContent='正在核對銀行帳單…';}
+  const buttons=[...document.querySelectorAll('.donePay, .billing-sync-paid')].filter(b=>
+    b.getAttribute('onclick')?.includes("markPaid('"+bank+"'") || b.dataset.bank===bank);
+  buttons.forEach(b=>{b.disabled=true;b.textContent='核對本期帳務中…';});
+  let moved=0,updated=0,planned=0;
   try{
-    // 要求前後端均已支援獨立繳費紀錄；絕不回退到「把整期交易改成繳」。
+    // 跨裝置資料一律重新從 GAS 讀取，不根據快取做修改。
     await ccRefreshStatementArchive();
     if(!ccStatementCloudReady || ccStatementBackendVersion!=='2.7.4' || !ccStatementPaymentRevision)
-      throw Error('請先部署 GAS v2.7.4，才能使用安全的銀行帳單繳費確認');
-    const month=y+'-'+pad(m);
-    const amount=ccStatementArchive?.[month]?.[bank];
-    if(typeof amount!=='number'||!Number.isFinite(amount))throw Error('此期尚未登記銀行正式帳單金額，請先核對金額');
-    const done=ccStatementPayments?.[month]?.[bank];
-    if(done?.paid && Number(done.amount)===amount)throw Error('此期銀行帳單已確認繳納，無需重複操作');
-    const label=bank+'銀行帳單 '+month+'，正式應繳 NT$'+amount.toLocaleString('zh-TW');
-    if(!confirm(label+'\n\n確定你已實際向銀行完成這筆繳費？\n\n這裡只同步「銀行帳單已繳」狀態，不會把延至下期的刷卡交易改成已繳。'))return;
-    let deviceToken=typeof ccStatementDeviceToken==='function'?ccStatementDeviceToken():'';
-    let adminKey='';
-    if(!deviceToken){
-      adminKey=prompt('請輸入 GAS 管理密碼以確認繳費（授權過的裝置不需重複輸入）：');
-      if(adminKey===null)return;
-      if(!adminKey)throw Error('未輸入管理密碼，已取消操作');
-    }
-    const response=await postToApi({action:'updateVerifiedPayment',bank,month,amount,
-      statementRevision:ccStatementRevision,paymentRevision:ccStatementPaymentRevision,
-      ...(deviceToken?{deviceToken}:{adminKey})});
-    if(!response?.payments?.[month]?.[bank]?.paid || !response?.paymentRevision)
-      throw Error('後端未確認繳費狀態，請重新讀取後再操作');
-    ccStatementPayments=response.payments;
-    ccStatementPaymentRevision=response.paymentRevision;
-    ccCyclePaymentStatus(label+'：已同步銀行繳費確認');
-    if(typeof renderBillingOverview==='function')renderBillingOverview();
-    if(typeof renderReminders==='function')await renderReminders();
-    alert('銀行帳單繳費已確認並同步至雲端。\n交易明細與延至下期的紀錄沒有被修改。');
-  }catch(err){
-    if(/裝置授權已過期|裝置授權無效|裝置授權已.*撤銷/.test(String(err.message||''))){
-      try{localStorage.removeItem(CC_DEVICE_TOKEN_KEY);}catch(_){}
-    }
-    // 連線中斷時可能已成功寫入，先重新讀取；避免直接重送重複請求。
-    try{await ccRefreshStatementArchive();}catch(_){}
-    ccCyclePaymentStatus('繳費確認結果需核對：'+err.message);
-    alert('繳費確認未完成或需核對：'+err.message+'\n請先查看網頁的銀行帳單狀態，不要直接重複按。');
-  }finally{
-    ccCyclePaymentBusy=false;
-    if(button && button.isConnected){button.disabled=false;button.textContent='完成繳費';}
-  }
-}
-
-
-// 已確認銀行付款後，額外同步該帳期 Sheet「刷→繳」；絕不包含延至下一期的交易。
-let ccPaidTransactionsSyncBusy=false;
-async function ccSyncPaidTransactions(bank,month){
-  if(ccPaidTransactionsSyncBusy)return;
-  if(!/^\d{4}-\d{2}$/.test(month)){alert('帳單月份不正確');return;}
-  const [y,m]=month.split('-').map(Number);
-  const cfg=APP_CONFIG.banks[bank];
-  if(!cfg || !navigator.onLine){alert('銀行資料不正確或目前離線，無法同步');return;}
-  if(typeof ccQueueBusy!=='undefined' && ccQueueBusy){alert('仍有交易正在同步，請先處理');return;}
-  const queued=typeof ccQueueRead==='function'?ccQueueRead().filter(x=>x.record?.bank===bank):[];
-  if(queued.length){alert(bank+'仍有 '+queued.length+' 筆待同步或待確認交易，請先處理');return;}
-  let completed=0,total=0;
-  ccPaidTransactionsSyncBusy=true;
-  try{
-    await ccRefreshStatementArchive();
-    if(!ccStatementCloudReady || ccStatementBackendVersion!=='2.7.4')throw Error('目前無法確認 GAS v2.7.4 銀行帳單付款資料');
-    const amount=ccStatementArchive?.[month]?.[bank];
-    const confirmation=ccStatementPayments?.[month]?.[bank];
-    if(typeof amount!=='number' || !Number.isFinite(amount) || !confirmation?.paid || Number(confirmation.amount)!==amount)
-      throw Error('該期銀行帳單尚未確認已繳，不能修改交易');
+      throw Error('請確認 GAS v2.7.4 已部署且銀行帳單資料同步成功');
+    const [y,m]=month.split('-').map(Number);
     const cycle=ccPayableCycle(bank,y,m);
+    const amount=ccStatementArchive?.[month]?.[bank];
+    if(typeof amount!=='number' || !Number.isFinite(amount) || amount<=0)
+      throw Error('本期沒有已核對的正數銀行帳單，無需繳費');
+    const payment=ccStatementPayments?.[month]?.[bank];
+    const alreadyPaid=payment?.paid===true && Number(payment.amount)===amount;
     const years=[...new Set([cycle.s.getFullYear(),cycle.e.getFullYear()])];
-    const results=await Promise.all(years.map(year=>fetchCloudRecords(year,{cycleRead:true})));
-    const rows=ccUniqueSourceRecords(results.flatMap(x=>x.records)).filter(r=>r.bank===bank && r.source?.sheetName===cycle.tab);
-    if(!rows.length)throw Error('本期 Sheet 找不到交易，請確認資料分頁');
+    const fetchCycle=async()=>{
+      const responses=await Promise.all(years.map(year=>fetchCloudRecords(year,{cycleRead:true})));
+      return ccUniqueSourceRecords(responses.flatMap(x=>x.records))
+        .filter(r=>r.bank===bank && r.source?.sheetName===cycle.tab);
+    };
+    let rows=await fetchCycle();
+    if(!rows.length)throw Error('找不到 '+cycle.tab+' 的交易，請確認 Google Sheet');
     const invalid=rows.filter(r=>r.twd===null || r.twd==='' || !Number.isFinite(Number(r.twd)) || !r.source?.rowHash);
-    if(invalid.length)throw Error('本期有 '+invalid.length+' 筆金額或來源未確認，已停止以免誤改');
-    const suspicious=rows.filter(r=>/(?:^|[｜\s])下期(?:$|[｜\s])|延至下期|延下期/.test(String(r.note||'')));
-    if(suspicious.length)throw Error('本期還有 '+suspicious.length+' 筆備註「下期」的交易（例如 NT$149）；請先使用「延至下期」搬到下一期 Sheet，再執行進度同步');
-    const totalAmount=rows.reduce((sum,r)=>sum+(r.transactionType==='refund'?-Math.abs(Number(r.twd)):Number(r.twd)),0);
-    if(Math.round((totalAmount-amount)*100)!==0)
-      throw Error('銀行已繳帳單 NT$'+amount.toLocaleString('zh-TW')+'，本期 Sheet 交易合計 NT$'+totalAmount.toLocaleString('zh-TW')+'，差額 NT$'+Math.abs(totalAmount-amount).toLocaleString('zh-TW')+'。請先核對並搬移延後交易，尚未修改任何進度');
-    const pending=rows.filter(r=>(r.status||'刷')==='刷');
-    total=pending.length;
-    if(!total){alert(bank+' '+month+' 本期交易已全部標示「繳」，無須重複更新');return;}
-    const range=fmtDate(cycle.s)+'～'+fmtDate(cycle.e);
-    if(!confirm(bank+' '+month+' 銀行帳單 NT$'+amount.toLocaleString('zh-TW')+' 已確認繳費。\n本期 Sheet：'+cycle.tab+'（'+range+'）\n金額已核對相符，即將把 '+total+' 筆「刷」更新為「繳」。\n下一期 Sheet 交易不會修改。確定執行？'))return;
-    for(const row of pending){
-      ccCyclePaymentStatus(bank+' 進度同步 '+completed+'/'+total+' 筆');
-      const result=await postToApi({action:'updateRecord',record:{...row,status:'繳',foreignCurrency:row.currency||'',foreignAmount:row.foreign??null}});
-      if(!result?.record?.source?.rowHash)throw Error('後端未確認交易更新，請核對 Sheet');
-      const updated=mapApiRecords([result.record])[0];
+    if(invalid.length)throw Error('帳期內有 '+invalid.length+' 筆金額或來源驗證不完整，已停止修改');
+    // 真正帳期以 Sheet 分頁為準；補登及入帳日晚於結帳日不在此阻擋。
+    const deferred=rows.filter(r=>(r.status||'刷')==='刷' && CC_DEFER_NOTE.test(String(r.note||'')));
+    const markedButPaid=rows.filter(r=>(r.status||'刷')!=='刷' && CC_DEFER_NOTE.test(String(r.note||'')));
+    if(markedButPaid.length)throw Error('有 '+markedButPaid.length+' 筆備註延至下期但已標「繳」，需要先人工核對');
+    const currentRows=rows.filter(r=>!deferred.includes(r));
+    const subtotal=ccBillAmount(currentRows);
+    if(Math.round((subtotal-amount)*100)!==0)
+      throw Error('銀行本期 NT$'+amount.toLocaleString('zh-TW')+'，排除待延後交易後 Sheet 為 NT$'+subtotal.toLocaleString('zh-TW')+'，差額 NT$'+Math.abs(subtotal-amount).toLocaleString('zh-TW')+'。請先確認哪些交易延後，尚未修改資料');
+    const pending=currentRows.filter(r=>(r.status||'刷')==='刷');
+    planned=pending.length;
+    if(alreadyPaid && !deferred.length && !pending.length){alert(bank+' '+month+' 已完成繳費及 Sheet 進度同步，不需重複操作。');return;}
+    const names=deferred.map(r=>'・'+r.item+'　NT$'+Number(r.twd).toLocaleString('zh-TW')).join('\n');
+    const confirmText=bank+' '+month+' 帳單 NT$'+amount.toLocaleString('zh-TW')+
+      (alreadyPaid?'\n銀行繳費：已確認（不會重複繳費）':'\n銀行繳費：確認你已實際繳納這期帳單')+
+      '\n\n'+(deferred.length?'延至下期 '+deferred.length+' 筆：\n'+names+'\n':'')+
+      '本期交易「刷→繳」：'+pending.length+' 筆\n\n只會修改你確認的 Google Sheet 交易；確定執行？';
+    if(!confirm(confirmText))return;
+    // 先記錄銀行已繳，再處理搬移和交易狀態；如後續中斷，可重按補完。
+    if(!alreadyPaid){
+      let deviceToken=typeof ccStatementDeviceToken==='function'?ccStatementDeviceToken():'';
+      let adminKey='';
+      if(!deviceToken){
+        adminKey=prompt('請輸入 GAS 管理密碼以確認本期繳費：');
+        if(adminKey===null)return;
+        if(!adminKey)throw Error('管理密碼未輸入');
+      }
+      const confirmation=await postToApi({action:'updateVerifiedPayment',bank,month,amount,
+        statementRevision:ccStatementRevision,paymentRevision:ccStatementPaymentRevision,
+        ...(deviceToken?{deviceToken}:{adminKey})});
+      if(!confirmation?.payments?.[month]?.[bank]?.paid || !confirmation.paymentRevision)
+        throw Error('後端未確認本期繳費狀態，請先檢查再重試');
+      ccStatementPayments=confirmation.payments;
+      ccStatementPaymentRevision=confirmation.paymentRevision;
+    }
+    // 每筆搬移均由 GAS 寫入下一期、刪除本期原行並加註「上期剩餘」。
+    for(const row of deferred){
+      ccCyclePaymentStatus(bank+' 搬移延後請款 '+(moved+1)+'/'+deferred.length);
+      const response=await postToApi({action:'moveRecordToNextCycle',source:row.source});
+      if(!response?.record?.source?.rowHash)throw Error('延後交易搬移結果未確認，請檢查兩期 Sheet');
+      moved++;
       if(typeof ccMarkLocalMutation==='function')ccMarkLocalMutation();
-      const sourceKey=ccSourceKey(row.source);
-      records=records.map(existing=>ccSourceKey(existing.source)===sourceKey?{...updated,id:existing.id}:existing);
-      if(typeof ccConfirmedWrites!=='undefined')ccConfirmedWrites.delete(sourceKey);
-      completed++;
+    }
+    // 重新讀取以確認延後的交易真的離開本期，金額仍一致。
+    rows=await fetchCycle();
+    if(rows.some(r=>CC_DEFER_NOTE.test(String(r.note||''))))throw Error('仍有備註「下期」的交易在原帳期，請先核對');
+    if(Math.round((ccBillAmount(rows)-amount)*100)!==0)
+      throw Error('搬移後帳期合計與銀行帳單不相符，已停止交易進度修改');
+    for(const row of rows.filter(r=>(r.status||'刷')==='刷')){
+      ccCyclePaymentStatus(bank+' 更新交易進度 '+(updated+1)+'/'+planned);
+      const result=await postToApi({action:'updateRecord',record:{...row,status:'繳',foreignCurrency:row.currency||'',foreignAmount:row.foreign??null}});
+      if(!result?.record?.source?.rowHash)throw Error('交易進度未獲後端確認，請檢查 Sheet');
+      updated++;
+      if(typeof ccMarkLocalMutation==='function')ccMarkLocalMutation();
     }
     await loadRecords({force:true});
-    ccCyclePaymentStatus(bank+' '+month+' 已同步 '+completed+' 筆交易進度');
-    alert('已將 '+completed+' 筆本期交易同步為「繳」。\n延至下期的交易仍保留「刷」，不會被修改。');
-  }catch(err){
-    ccCyclePaymentStatus('同步中止：'+completed+'/'+total+' 筆。請核對 Sheet');
-    alert('交易進度同步未全部完成：'+err.message+'\n已成功 '+completed+'/'+total+' 筆。\n請先核對 Google Sheet；重新執行時會只更新仍為「刷」的本期交易。');
-  }finally{
-    ccPaidTransactionsSyncBusy=false;
+    if(typeof renderReminders==='function')await renderReminders();
     if(typeof renderBillingOverview==='function')renderBillingOverview();
+    ccCyclePaymentStatus(bank+' '+month+' 帳務已完成同步');
+    alert('已完成本期帳務！\n銀行帳單已確認繳費，延至下期 '+moved+' 筆；本期 Sheet 更新「繳」 '+updated+' 筆。');
+  }catch(err){
+    // 逐筆寫入可能部分成功；雲端重讀後再執行，已完成的部分不會重複更新。
+    try{await loadRecords({force:true});}catch(_){}
+    try{await ccRefreshStatementArchive();}catch(_){}
+    ccCyclePaymentStatus('帳務整理中斷：延後 '+moved+' 筆，更新 '+updated+' 筆');
+    alert('帳務整理尚未全部完成：'+err.message+
+      '\n已搬移 '+moved+' 筆、更新 '+updated+' 筆。\n請先確認 Sheet，再重按同一個按鈕補完。');
+  }finally{
+    ccCyclePaymentBusy=false;
+    if(typeof renderBillingOverview==='function')renderBillingOverview();
+    buttons.forEach(b=>{if(b.isConnected){b.disabled=false;b.textContent='完成本期繳費';}});
   }
 }
