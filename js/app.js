@@ -352,7 +352,7 @@ async function renderReminders(){
   if(!navigator.onLine){nextInfo.textContent='離線中，暫不顯示未經確認的繳費提醒。';return;}
   try{
     // 以最新 Google Sheet 的未繳交易判斷提醒；本機 paid 只當作舊版歷史資訊，不阻擋其他裝置的提醒。
-    const candidates=Object.entries(APP_CONFIG.banks).filter(([bank,cfg])=>cfg.paymentDueDay && d>=cfg.paymentDueDay-1);
+    const candidates=Object.entries(APP_CONFIG.banks).filter(([bank,cfg])=>cfg.paymentDueDay && d>=cfg.paymentDueDay-1 && (!cfg.firstPaymentDueDate || dateToInput(now)>=cfg.firstPaymentDueDate));
     if(!candidates.length){nextInfo.textContent='目前沒有即將到期的繳費提醒。';return;}
     const cycles=candidates.map(([bank,cfg])=>({bank,cfg,cycle:ccPayableCycle(bank,y,m)}));
     const years=[...new Set(cycles.flatMap(x=>[x.cycle.s.getFullYear(),x.cycle.e.getFullYear()]))];
