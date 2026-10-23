@@ -118,37 +118,33 @@ function renderMonthComparison(selectedKey, currentNet){
 
 function renderWeeklyTrend(list){
   const root = document.getElementById('dailyTrend');
-  if(!root) return;
-
-  const weekMap = {
-    1:{label:'第1週', range:'1–7日', value:0},
-    2:{label:'第2週', range:'8–14日', value:0},
-    3:{label:'第3週', range:'15–21日', value:0},
-    4:{label:'第4週', range:'22–月底', value:0}
-  };
-
-  let hasData = false;
-  list.forEach(r => {
-    const normalized = normalizeClientDate(r.date);
-    if(!/^\d{4}-\d{2}-\d{2}$/.test(normalized)) return;
-    const day = Number(normalized.slice(8,10));
-    const week = day <= 7 ? 1 : day <= 14 ? 2 : day <= 21 ? 3 : 4;
-    weekMap[week].value += signedTwd(r);
-    hasData = true;
+  if(!root)return;
+  const weeks=[
+    {label:'第1週',range:'帳期第1–7日',value:0},
+    {label:'第2週',range:'帳期第8–14日',value:0},
+    {label:'第3週',range:'帳期第15–21日',value:0},
+    {label:'第4週',range:'帳期第22–28日',value:0},
+    {label:'第5週',range:'帳期第29日以後',value:0}
+  ];
+  let valid=0;
+  list.forEach(r=>{
+    const start=String(r?.source?.sheetName||'').match(/^(\d{2})\/(\d{2})\/(\d{2})$/);
+    const date=normalizeClientDate(r.date);
+    if(!start||!/^\d{4}-\d{2}-\d{2}$/.test(date))return;
+    const origin=Date.UTC(2000+Number(start[1]),Number(start[2])-1,Number(start[3]));
+    const day=Date.UTC(Number(date.slice(0,4)),Number(date.slice(5,7))-1,Number(date.slice(8)));
+    const offset=Math.floor((day-origin)/86400000);
+    // 帳期內的延後入帳可能超過結帳日期，仍放在該帳期最後一週，不跨期重算。
+    const idx=Math.max(0,Math.min(4,Math.floor(Math.max(0,offset)/7)));
+    weeks[idx].value+=signedTwd(r);valid++;
   });
-
-  if(!hasData){
-    root.innerHTML = '<div class="analysis-empty-small">這個月份目前沒有每週支出資料</div>';
-    return;
-  }
-
-  const weeks = Object.values(weekMap);
-  const maxAbs = Math.max(...weeks.map(x => Math.abs(x.value)), 1);
-  root.innerHTML = '<div class="weekly-list">' + weeks.map(w => {
-    const width = w.value === 0 ? 0 : Math.max(3, Math.abs(w.value) / maxAbs * 100);
-    const negative = w.value < 0 ? ' negative' : '';
-    return '<div class="weekly-row"><div class="weekly-head"><span><b>' + w.label + '</b> <small>' + w.range + '</small></span><strong class="weekly-amount' + negative + '">' + analysisMoney(w.value) + '</strong></div><div class="weekly-track"><div class="weekly-fill' + negative + '" style="width:' + width + '%"></div></div></div>';
-  }).join('') + '</div>';
+  if(!valid){root.innerHTML='<div class="analysis-empty-small">這個帳期目前沒有每週支出資料</div>';return;}
+  const max=Math.max(...weeks.map(w=>Math.abs(w.value)),1);
+  root.innerHTML='<div class="weekly-list">'+weeks.map(w=>{
+    const width=w.value===0?0:Math.max(3,Math.abs(w.value)/max*100);
+    const neg=w.value<0?' negative':'';
+    return '<div class="weekly-row"><div class="weekly-head"><span><b>'+w.label+'</b> <small>'+w.range+'</small></span><strong class="weekly-amount'+neg+'">'+analysisMoney(w.value)+'</strong></div><div class="weekly-track"><div class="weekly-fill'+neg+'" style="width:'+width+'%"></div></div></div>';
+  }).join('')+'</div>';
 }
 
 function renderTopTransactions(list){
@@ -292,7 +288,7 @@ async function ccLoadCycleSpending(year,force=false){
     ccCycleSpendingErrors[year]=err.message||'無法讀取交易資料';
   }finally{
     ccCycleSpendingLoading.delete(year);
-    if(analysisYear===year)renderBankPaymentHistory(year);
+    if(analysisYear===year)renderAnalysis();
   }
 }
 function renderBankPaymentHistory(year){
@@ -328,6 +324,7 @@ function renderAnalysis(){
   if(!root) return;
 
   const {years, months} = ensureAnalysisPeriod();
+  const cycleReady=Boolean(analysisYear && ccAnalysisRecords(analysisYear).length);
   const yearTabs = document.getElementById('analysisYearTabs');
   const monthTabs = document.getElementById('analysisMonthTabs');
 
@@ -354,13 +351,15 @@ function renderAnalysis(){
   }
 
   const selectedKey = selectedAnalysisMonthKey();
-  const list = ccAnalysisMonthList(selectedKey);
+  const list = cycleReady ? ccAnalysisMonthList(selectedKey) : [];
   const purchase = list.filter(r => recordTransactionType(r) !== 'refund');
   const refunds = list.filter(r => recordTransactionType(r) === 'refund');
   const purchaseTotal = purchase.reduce((sum, r) => sum + Math.abs(Number(r.twd) || 0), 0);
   const refundTotal = refunds.reduce((sum, r) => sum + Math.abs(Number(r.twd) || 0), 0);
   const netTotal = purchaseTotal - refundTotal;
   const pendingCount = list.filter(r => Number(r.foreign) !== 0 && !(Math.abs(Number(r.twd)) > 0)).length;
+  const status=document.getElementById('analysisDataStatus');
+  if(status)status.textContent=cycleReady?'所有分析依四家銀行的實際 Sheet 帳期分頁計算（包含上期剩餘）；同帳期的統計金額一致。':'正在載入帳期資料；下方統計完成後顯示。';
 
   const purchaseEl = document.getElementById('analysisPurchase');
   const refundEl = document.getElementById('analysisRefund');
@@ -373,6 +372,10 @@ function renderAnalysis(){
   pendingEl?.closest('.analysis-stat')?.classList.toggle('hidden',pendingCount===0);
 
   renderBankPaymentHistory(analysisYear);
+  if(!cycleReady){
+    const trend=document.getElementById('dailyTrend');if(trend)trend.innerHTML='<div class="analysis-empty-small">帳期資料讀取中…</div>';
+    const top=document.getElementById('topTransactions');if(top)top.innerHTML='<div class="analysis-empty-small">帳期資料讀取中…</div>';
+  }
   renderMonthlyTransactionCounts(analysisYear, selectedKey);
   renderMonthComparison(selectedKey, netTotal);
   renderWeeklyTrend(list);
