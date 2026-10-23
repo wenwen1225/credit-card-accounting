@@ -366,6 +366,8 @@ async function renderReminders(){
       const cloudReady=typeof ccStatementCloudReady!=='undefined' && ccStatementCloudReady;
       const statement=cloudReady && typeof ccStatementArchive!=='undefined'?ccStatementArchive?.[month]?.[bank]:undefined;
       const confirmed=typeof statement==='number' && Number.isFinite(statement);
+      // 銀行正式帳單已核對為 0 元時，不要顯示繳費提醒；Sheet 明細可能含延後請款。
+      if(confirmed && !(statement>0))continue;
       const paidRecord=cloudReady && typeof ccStatementPayments!=='undefined'?ccStatementPayments?.[month]?.[bank]:undefined;
       if(paidRecord?.paid===true && confirmed && Number(paidRecord.amount)===statement)continue;
       const selected=all.filter(r=>r.bank===bank && r.source?.sheetName===cycle.tab);
