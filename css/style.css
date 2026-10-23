@@ -450,3 +450,30 @@ textarea{min-height:78px;resize:vertical}
   .page {padding-inline:24px;}
   .box,.analysis-card,.compare-card {border-radius:18px;}
 }
+
+/* Desktop layout audit: prevent billing notices from consuming a bank card cell.
+   Place the dense 12-month table across the dashboard rather than half-width. */
+@media (min-width:700px) {
+  #billingOverview > .billing-note,
+  #billingOverview > .empty,
+  #billingOverview > :not(.billing-card) {
+    grid-column:1 / -1;
+    min-width:0;
+  }
+  #billingOverview > .billing-note {
+    margin-bottom:0!important;
+    padding:6px 0 2px;
+    font-size:12px;
+    line-height:1.55;
+  }
+  #analysisPage > .analysis-card:first-of-type {
+    grid-column:1 / -1;
+  }
+  #analysisPage .analysis-card { overflow-wrap:anywhere; }
+}
+@media (min-width:1100px) {
+  #analysisPage > .analysis-card:first-of-type {
+    grid-column:1 / -1;
+  }
+  #analysisPage #bankPaymentHistory {width:100%;min-width:0;}
+}
