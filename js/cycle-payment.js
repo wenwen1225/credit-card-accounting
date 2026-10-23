@@ -5,6 +5,7 @@ function ccPayableCycle(bank,y,m){
   const cfg=APP_CONFIG.banks[bank];
   if(!cfg?.cycleStartDay || !cfg?.paymentDueDay)throw Error('找不到銀行帳期規則');
   const dueDate=new Date(y,m-1,cfg.paymentDueDay,12);
+  if(cfg.firstPaymentDueDate && dateToInput(dueDate)<cfg.firstPaymentDueDate)throw Error(bank+' 第一筆帳單從 '+cfg.firstPaymentDueDate+' 才開始繳款，不能標記更早月份');
   if(dueDate.getMonth()!==m-1)throw Error('繳費月份不正確');
   const current=getBankCycle(bank,dateToInput(dueDate));
   const lastDay=new Date(current.s);
