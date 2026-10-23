@@ -16,6 +16,8 @@ function ccLoadStatements(){try{const value=JSON.parse(localStorage.getItem(CC_S
 let ccStatementArchive=ccLoadStatements();
 let ccStatementCloudReady=false;
 let ccStatementRevision='';
+let ccStatementPayments={};
+let ccStatementPaymentRevision='';
 let ccStatementCloudError='正在向雲端確認銀行核對金額…';
 let ccStatementWriteBusy=false;
 let ccStatementBackendVersion='';
@@ -31,6 +33,8 @@ async function ccRefreshStatementArchive(){
     if(!/^2\.7\.[2-9]$/.test(String(data.version||'')))throw Error('GAS 必須先部署 v2.7.2 才能跨裝置同步');
     ccStatementArchive=data.archive;
     ccStatementRevision=data.revision;
+    ccStatementPayments=data.payments&&typeof data.payments==='object'?data.payments:{};
+    ccStatementPaymentRevision=String(data.paymentRevision||'');
     ccStatementBackendVersion=String(data.version||'');
     ccStatementCloudReady=true;
     ccStatementCloudError='';
@@ -282,11 +286,13 @@ function renderBillingOverview(){
     const openCycle = activeCycleForBank(cfg.cycleStartDay, now, bank);
     if(!closedCycle){
       const openRaw=records.filter(r=>r.bank===bank && belongsToCycle(r,openCycle));
-      cards.push('<div class="billing-card '+bankClass(bank)+'"><div class="billing-head"><strong>'+esc(bank)+'</strong><span>繳款日：每月 '+cfg.paymentDueDay+' 日</span></div><div class="billing-cycle-label">首期累積｜'+rangeText(openCycle)+'</div><div class="billing-amount">'+moneyText(sumTwd(openRaw))+'</div>'+cycleMismatchNotice(bank,openCycle)+pendingCycleHtml(bank,openCycle)+'<div class="billing-note">首期依實際 Google Sheet 分頁計算；前一期資訊尚未確認，不推算上一期應繳金額。</div></div>');
+      cards.push('<div class="billing-card '+bankClass(bank)+'"><div class="billing-head"><strong>'+esc(bank)+'</strong><span>結帳 '+(openCycle.e.getMonth()+1)+'/'+openCycle.e.getDate()+'｜'+ccDueDateLabel(openCycle,cfg.paymentDueDay)+'</span></div><div class="billing-cycle-label">首期累積｜'+rangeText(openCycle)+'</div><div class="billing-amount">'+moneyText(sumTwd(openRaw))+'</div>'+cycleMismatchNotice(bank,openCycle)+pendingCycleHtml(bank,openCycle)+'<div class="billing-note">首期依實際 Google Sheet 分頁計算；前一期資訊尚未確認，不推算上一期應繳金額。</div></div>');
       return;
     }
     const snapshotKey = dateToInput(now).slice(0,7);
     const knownStatement = ccStatementArchive[snapshotKey]?.[bank];
+    const paymentRecord=ccStatementPayments?.[snapshotKey]?.[bank];
+    const bankPaid=paymentRecord?.paid===true && Number(paymentRecord.amount)===Number(knownStatement);
     const verified = typeof knownStatement === 'number' && Number.isFinite(knownStatement);
     const payableMonthLabel = monthLabelFromCycle(closedCycle);
     const accumulatingMonthLabel = monthLabelFromCycle(openCycle);
@@ -325,18 +331,19 @@ function renderBillingOverview(){
       <div class="billing-card ${bankClass(bank)}">
         <div class="billing-head">
           <strong>${esc(bank)}</strong>
-          <span>${ccDueDateLabel(closedCycle,cfg.paymentDueDay)}</span>
+          <span>結帳 ${closedCycle.e.getMonth()+1}/${closedCycle.e.getDate()}｜${ccDueDateLabel(closedCycle,cfg.paymentDueDay)}</span>
         </div>
 
-        <div class="billing-cycle-label">${verified ? "上期帳單（已確認）" : "上期帳單（尚未核對）"}</div>
+        <div class="billing-cycle-label">${bankPaid ? "上期銀行帳單（已確認繳費）" : verified ? "上期帳單（已確認）" : "上期帳單（尚未核對）"}</div>
         <div class="billing-amount">${verified ? moneyText(knownStatement) : (payable.length && !payableMissing ? moneyText(estimatedPayable) : "待確認")}</div>
+        ${bankPaid ? `<div class="billing-note">此期銀行帳單已確認繳納（${esc(paymentRecord.confirmedAt||"日期未提供")}）；交易的刷／繳狀態仍獨立管理。</div>` : ""}
         ${!verified && payable.length && !payableMissing ? '<div class="billing-warning">以上為 Google Sheet 上期交易明細加總（估算），尚非銀行正式帳單；請核對後再登記。</div>' : ''}
         <button type="button" data-cc-statement="${esc(bank)}" data-month="${esc(snapshotKey)}">登記／修正銀行帳單金額</button>
         <div class="billing-note">${ccStatementCloudReady ? "核對金額已由 GAS 雲端同步；不修改交易 Google Sheet。" : esc(ccStatementCloudError)}</div>
         ${payableMissing ? `<div class="billing-warning">另有 ${payableMissing} 筆尚未補台幣金額</div>` : ''}
 
         <div class="billing-next-box">
-          <div><span>本期累積消費（${rangeText(openCycle)}）</span></div>
+          <div><span>本期累積消費（${rangeText(openCycle)}）｜結帳 ${openCycle.e.getMonth()+1}/${openCycle.e.getDate()}｜${ccDueDateLabel(openCycle,cfg.paymentDueDay)}</span></div>
           <strong>${moneyText(sumTwd(nextAccumulated))}</strong>
         </div>
         ${cycleMismatchNotice(bank,openCycle)}
