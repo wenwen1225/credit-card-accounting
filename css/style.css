@@ -272,3 +272,37 @@ textarea{min-height:78px;resize:vertical}
   .app, .page, .box { min-width: 0; }
   .row > *, .date-select-row > * { min-width: 0; }
 }
+
+/* Desktop information architecture — 2026-10-23 */
+@media (min-width: 900px) {
+  /* Forms become two-column workspaces, rather than stretched phone forms. */
+  #addPage.active > .box {
+    max-width: 900px;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0 18px;
+    align-items: start;
+  }
+  #addPage > .box > h2,
+  #addPage > .box > .cycle,
+  #addPage > .box > .btn,
+  #addPage > .box > .cc-queue-saved,
+  #addPage > .box > .cc-queue-panel,
+  #addPage > .box > .hidden,
+  #addPage > .box > .toggleLine { grid-column: 1 / -1; }
+  #addPage > .box > .field:has(textarea) { grid-column: 1 / -1; }
+  /* Four bank bills show as a dashboard instead of a tall list. */
+  #billingOverview { display:grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap:14px; }
+  #billingOverview > .billing-card { min-width:0; margin-bottom:0; }
+  #recordList:not(:empty) { display:grid; grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;align-items:start; }
+  #recordList > .record { margin-bottom:0;min-width:0; }
+  #recordList > :not(.record) { grid-column:1/-1; }
+}
+@media (min-width: 1100px) {
+  #addPage.active > .box { max-width: 950px; }
+  #analysisPage.active { grid-template-columns:repeat(2,minmax(0,1fr)); }
+}
+@media (min-width: 700px) and (max-width: 899px) {
+  #billingOverview { display:grid;grid-template-columns: repeat(2,minmax(0,1fr));gap:12px; }
+  #billingOverview > .billing-card { min-width:0;margin-bottom:0; }
+}
