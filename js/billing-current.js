@@ -286,7 +286,7 @@ function renderBillingOverview(){
     const openCycle = activeCycleForBank(cfg.cycleStartDay, now, bank);
     if(!closedCycle){
       const openRaw=records.filter(r=>r.bank===bank && belongsToCycle(r,openCycle));
-      cards.push('<div class="billing-card '+bankClass(bank)+'"><div class="billing-head"><strong>'+esc(bank)+'</strong><span>繳款日：每月 '+cfg.paymentDueDay+' 日</span></div><div class="billing-cycle-label">首期累積｜'+rangeText(openCycle)+'</div><div class="billing-amount">'+moneyText(sumTwd(openRaw))+'</div>'+cycleMismatchNotice(bank,openCycle)+pendingCycleHtml(bank,openCycle)+'<div class="billing-note">首期依實際 Google Sheet 分頁計算；前一期資訊尚未確認，不推算上一期應繳金額。</div></div>');
+      cards.push('<div class="billing-card '+bankClass(bank)+'"><div class="billing-head"><strong>'+esc(bank)+'</strong><span>結帳 '+(openCycle.e.getMonth()+1)+'/'+openCycle.e.getDate()+'｜'+ccDueDateLabel(openCycle,cfg.paymentDueDay)+'</span></div><div class="billing-cycle-label">首期累積｜'+rangeText(openCycle)+'</div><div class="billing-amount">'+moneyText(sumTwd(openRaw))+'</div>'+cycleMismatchNotice(bank,openCycle)+pendingCycleHtml(bank,openCycle)+'<div class="billing-note">首期依實際 Google Sheet 分頁計算；前一期資訊尚未確認，不推算上一期應繳金額。</div></div>');
       return;
     }
     const snapshotKey = dateToInput(now).slice(0,7);
@@ -331,7 +331,7 @@ function renderBillingOverview(){
       <div class="billing-card ${bankClass(bank)}">
         <div class="billing-head">
           <strong>${esc(bank)}</strong>
-          <span>${ccDueDateLabel(closedCycle,cfg.paymentDueDay)}</span>
+          <span>結帳 ${closedCycle.e.getMonth()+1}/${closedCycle.e.getDate()}｜${ccDueDateLabel(closedCycle,cfg.paymentDueDay)}</span>
         </div>
 
         <div class="billing-cycle-label">${bankPaid ? "上期銀行帳單（已確認繳費）" : verified ? "上期帳單（已確認）" : "上期帳單（尚未核對）"}</div>
@@ -343,7 +343,7 @@ function renderBillingOverview(){
         ${payableMissing ? `<div class="billing-warning">另有 ${payableMissing} 筆尚未補台幣金額</div>` : ''}
 
         <div class="billing-next-box">
-          <div><span>本期累積消費（${rangeText(openCycle)}）</span></div>
+          <div><span>本期累積消費（${rangeText(openCycle)}）｜結帳 ${openCycle.e.getMonth()+1}/${openCycle.e.getDate()}｜${ccDueDateLabel(openCycle,cfg.paymentDueDay)}</span></div>
           <strong>${moneyText(sumTwd(nextAccumulated))}</strong>
         </div>
         ${cycleMismatchNotice(bank,openCycle)}
