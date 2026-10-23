@@ -1,5 +1,5 @@
-// 分析頁：年份 / 月份 + 概況 + 銀行占比 + 消費/退刷 + 卡別排行 + 趨勢分析
-// 純前端統計，直接使用目前已讀入的 records，不需要新增後端 API。
+// 分析頁：統一依 Sheet 帳期月份統計，包含上期剩餘、退刷與雲端版本快取
+// 利用既有 GAS records?cycleRead=1 取得完整分頁交易，無新增或修改 Sheet。
 
 let analysisYear = '';
 let analysisMonth = '';
@@ -93,11 +93,11 @@ function renderMonthComparison(selectedKey, currentNet){
   const prevKey = previousMonthKey(selectedKey);
   const prevList = ccAnalysisMonthList(prevKey);
   const prevNet = netTotalForList(prevList);
-  const currentLabel = selectedKey ? `${Number(selectedKey.slice(5))}月` : '本月';
-  const prevLabel = prevKey ? `${Number(prevKey.slice(5))}月` : '上月';
+  const currentLabel = selectedKey ? `${Number(selectedKey.slice(5))}月帳期` : '本期';
+  const prevLabel = prevKey ? `${Number(prevKey.slice(5))}月帳期` : '上期';
 
   if(!prevList.length){
-    box.innerHTML = `<div class="compare-main"><div><small>${currentLabel}淨支出</small><strong>${analysisMoney(currentNet)}</strong></div><div class="compare-change neutral">上月無資料</div></div><div class="compare-sub">尚無 ${prevLabel} 紀錄可比較</div>`;
+    box.innerHTML = `<div class="compare-main"><div><small>${currentLabel}淨支出</small><strong>${analysisMoney(currentNet)}</strong></div><div class="compare-change neutral">上期無資料</div></div><div class="compare-sub">尚無 ${prevLabel} 紀錄可比較</div>`;
     return;
   }
 
@@ -110,7 +110,7 @@ function renderMonthComparison(selectedKey, currentNet){
       changeClass = pct > 0 ? 'up' : 'down';
     }
   }else if(currentNet !== 0){
-    pctText = '上月為 0';
+    pctText = '上期為 0';
   }
 
   box.innerHTML = `<div class="compare-main"><div><small>${currentLabel}淨支出</small><strong>${analysisMoney(currentNet)}</strong></div><div class="compare-change ${changeClass}">${pctText}</div></div><div class="compare-sub">${prevLabel} ${analysisMoney(prevNet)} ・ 差額 ${analysisMoney(currentNet - prevNet)}</div>`;
@@ -161,7 +161,7 @@ function renderTopTransactions(list){
       <div class="top-spend-rank">${index+1}</div>
       <div class="top-spend-main"><strong>${esc(r.item || '未命名項目')}</strong><small>${esc(r.date)}・${esc(r.bank)}${r.card ? `・${esc(r.card)}` : ''}</small></div>
       <div class="top-spend-amount">${analysisMoney(Math.abs(Number(r.twd)||0))}</div>
-    </div>`).join('') : '<div class="analysis-empty-small">這個月份目前沒有可排行的消費紀錄</div>';
+    </div>`).join('') : '<div class="analysis-empty-small">這個帳期目前沒有可排行的消費紀錄</div>';
 }
 
 
