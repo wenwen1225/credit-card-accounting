@@ -44,6 +44,7 @@ async function ccRefreshStatementArchive(){
     ccStatementCloudError='無法同步銀行帳單核對金額：'+err.message+'。目前僅顯示本機舊資料，禁止編輯，避免兩台裝置互相覆蓋。';
   }
   if(typeof renderBillingOverview==='function')renderBillingOverview();
+  if(typeof renderAnalysis==='function')renderAnalysis();
   if(typeof renderReminders==='function')void renderReminders();
 }
 async function ccEditStatement(bank,month){
@@ -336,8 +337,8 @@ function renderBillingOverview(){
 
         <div class="billing-cycle-label">${bankPaid ? `本期累積消費（${rangeText(openCycle)}）` : verified ? "上期帳單（已確認）" : "上期帳單（尚未核對）"}</div>
         <div class="billing-amount">${bankPaid ? moneyText(sumTwd(nextAccumulated)) : verified ? moneyText(knownStatement) : (payable.length && !payableMissing ? moneyText(estimatedPayable) : "待確認")}</div>
-        ${bankPaid ? `<div class="billing-note">上期銀行帳單 ${moneyText(knownStatement)} 已繳（${esc(paymentRecord.confirmedAt||"日期未提供")}）。</div>` : ""}
-        ${bankPaid ? `<div class="billing-note">${closedRaw.some(r=>(r.status||"刷")==="刷") ? "銀行已繳費；若本期交易尚未改為「繳」，請使用頁面上方的帳務提醒完成同步。" : "銀行已繳費；本期交易進度已同步。"}</div>` : ""}
+        ${bankPaid ? `<div class="billing-note">上期帳單已繳，詳細繳費紀錄可至「分析」查看。</div>` : ""}
+        ${bankPaid && closedRaw.some(r=>(r.status||"刷")==="刷") ? `<div class="billing-note">本期交易進度尚待同步，請使用上方提醒區完成。</div>` : ""}
         ${!bankPaid && !verified && payable.length && !payableMissing ? '<div class="billing-warning">以上為 Google Sheet 上期交易明細加總（估算），尚非銀行正式帳單；請核對後再登記。</div>' : ''}
         <button type="button" data-cc-statement="${esc(bank)}" data-month="${esc(snapshotKey)}">登記／修正銀行帳單金額</button>
         <div class="billing-note">${ccStatementCloudReady ? "核對金額已由 GAS 雲端同步；不修改交易 Google Sheet。" : esc(ccStatementCloudError)}</div>
