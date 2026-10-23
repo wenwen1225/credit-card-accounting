@@ -204,38 +204,81 @@ function renderMonthlyTransactionCounts(year, selectedKey){
 }
 
 // 銀行已繳費歷史依「繳款月份」列示，不拿交易日期或刷／繳明細加總冒充銀行實繳。
+// 2026/10/23 自各銀行原始 Sheet 的「繳費」列核對的唯讀快照。
+// v2.7.6 可直接讀取 Sheet 最新歷史紀錄；未升級前先用這份已驗證數值。
+// 沒有「繳費」金額者絕不以「帳單」或交易狀態擅自推論。
+const CC_SHEET_PAYMENT_2026={
+  '2026-01':{'中信':4260,'國泰':10138},
+  '2026-03':{'中信':57165,'國泰':11693},
+  '2026-04':{'中信':4460,'國泰':5613},
+  '2026-05':{'中信':8671},
+  '2026-06':{'中信':11824,'國泰':9757},
+  '2026-07':{'中信':24889,'國泰':6815},
+  '2026-08':{'中信':10750,'國泰':15450},
+  '2026-09':{'中信':22343,'國泰':12121},
+  '2026-10':{'中信':62814}
+};
+let ccHistoricSheetPayments={};
+let ccHistoricPaymentsLoadedYears=new Set();
+let ccHistoricPaymentsBusyYears=new Set();
+function ccPaidHistoryValue(year,month,bank){
+  const key=year+'-'+String(month).padStart(2,'0');
+  const paid=typeof ccStatementPayments!=='undefined'?ccStatementPayments?.[key]?.[bank]:null;
+  // 當月有新的 GAS「已繳」紀錄，優先使用這筆，避免同一帳單重複計算。
+  if(paid?.paid===true && Number.isFinite(Number(paid.amount)))return Number(paid.amount);
+  const live=ccHistoricSheetPayments?.[key]?.[bank]?.amount;
+  if(Number.isFinite(Number(live)) && live!==undefined && live!==null)return Number(live);
+  return year==='2026'?Number(CC_SHEET_PAYMENT_2026[key]?.[bank]||0):0;
+}
+async function ccLoadHistoricSheetPayments(year){
+  if(ccHistoricPaymentsLoadedYears.has(year)||ccHistoricPaymentsBusyYears.has(year))return;
+  // 舊版 2.7.5 沒有歷史查詢 API；保留 2026 已核對過的快照即可，不反覆請求。
+  if(!/^2\.7\.(?:[6-9]|[1-9]\d+)$/.test(String(typeof ccStatementBackendVersion!=='undefined'?ccStatementBackendVersion:'')))return;
+  ccHistoricPaymentsBusyYears.add(year);
+  try{
+    const response=await fetch(APP_CONFIG.apiUrl+'?action=paymentHistory&year='+encodeURIComponent(year)+'&_='+Date.now(),{cache:'no-store'});
+    if(!response.ok)throw Error('HTTP '+response.status);
+    const data=await response.json();
+    if(!data.ok||!data.history||typeof data.history!=='object')throw Error(data.error||'歷史繳款資料格式錯誤');
+    Object.keys(ccHistoricSheetPayments).filter(key=>key.startsWith(year+'-')).forEach(key=>delete ccHistoricSheetPayments[key]);
+    Object.assign(ccHistoricSheetPayments,data.history);
+    ccHistoricPaymentsLoadedYears.add(year);
+    renderBankPaymentHistory(year);
+  }catch(err){console.warn('歷史繳款讀取失敗，保留已核對的本機快照',err);}
+  finally{ccHistoricPaymentsBusyYears.delete(year);}
+}
 function renderBankPaymentHistory(year){
   const root=document.getElementById('bankPaymentHistory');
   if(!root)return;
   const ready=typeof ccStatementCloudReady!=='undefined' && ccStatementCloudReady;
   if(!ready){
-    root.innerHTML='<div class="analysis-empty-small">目前無法讀取雲端銀行繳費紀錄，請確認連線後重新開啟。為避免誤認，本區暫不顯示 NT$0。</div>';
+    root.innerHTML='<div class="analysis-empty-small">目前無法讀取銀行已繳確認紀錄，請檢查連線後重試；不顯示未經核對的 NT$0。</div>';
     return;
   }
+  if(!year){root.innerHTML='<div class="analysis-empty-small">尚未選擇年份</div>';return;}
+  void ccLoadHistoricSheetPayments(year);
   const banks=['中信','國泰','台新','富邦'];
-  const payments=typeof ccStatementPayments!=='undefined' && ccStatementPayments?ccStatementPayments:{};
-  const totals=Object.fromEntries(banks.map(b=>[b,0]));
+  const totals=Object.fromEntries(banks.map(bank=>[bank,0]));
   const rows=Array.from({length:12},(_,i)=>{
     const key=year+'-'+String(i+1).padStart(2,'0');
-    let sum=0;
+    let total=0;
     const cells=banks.map(bank=>{
-      const entry=payments[key]?.[bank];
-      const amount=entry?.paid===true && Number.isFinite(Number(entry.amount)) && Number(entry.amount)>=0
-        ? Number(entry.amount):0;
+      const amount=ccPaidHistoryValue(year,i+1,bank);
+      total+=amount;
       totals[bank]+=amount;
-      sum+=amount;
       return '<td>'+analysisMoney(amount)+'</td>';
     }).join('');
-    const isCurrent=key===selectedAnalysisMonthKey();
-    return '<tr'+(isCurrent?' class="selected"':'')+'><th scope="row">'+(i+1)+'月</th>'+cells+'<td class="payment-total">'+analysisMoney(sum)+'</td></tr>';
+    return '<tr'+(key===selectedAnalysisMonthKey()?' class="selected"':'')+'><th scope="row">'+(i+1)+'月</th>'+cells+'<td class="payment-total">'+analysisMoney(total)+'</td></tr>';
   }).join('');
-  const total=banks.reduce((n,b)=>n+totals[b],0);
+  const grand=banks.reduce((n,bank)=>n+totals[bank],0);
   root.innerHTML='<div class="payment-history-scroll"><table class="payment-history-table"><thead><tr><th scope="col">繳款月</th>'+
-    banks.map(bank=>'<th scope="col">'+bank+'</th>').join('')+
-    '<th scope="col">合計</th></tr></thead><tbody>'+rows+
-    '</tbody><tfoot><tr><th scope="row">全年合計</th>'+banks.map(bank=>'<td>'+analysisMoney(totals[bank])+'</td>').join('')+
-    '<td class="payment-total">'+analysisMoney(total)+'</td></tr></tfoot></table></div>'+
-    '<div class="analysis-payment-note">僅統計已在雲端確認「銀行帳單已繳」的金額。NT$0 代表該月尚無已繳紀錄，不代表銀行沒有出帳；月份依繳款月計算。</div>';
+    banks.map(bank=>'<th scope="col">'+bank+'</th>').join('')+'<th scope="col">合計</th></tr></thead><tbody>'+
+    rows+'</tbody><tfoot><tr><th scope="row">全年合計</th>'+
+    banks.map(bank=>'<td>'+analysisMoney(totals[bank])+'</td>').join('')+
+    '<td class="payment-total">'+analysisMoney(grand)+'</td></tr></tfoot></table></div>'+
+    '<div class="analysis-payment-note">依銀行實際繳款月份。已確認繳費的雲端紀錄優先；歷史資料取自 Sheet 的「繳費」列。'+
+    (!ccHistoricPaymentsLoadedYears.has(year) && year==='2026'?'歷史欄位目前採 2026/10/23 已核對的 Sheet 快照；更新 GAS v2.7.6 後可自動重讀。':'')+
+    ' NT$0 代表未找到已繳記錄，不代表銀行沒有出帳。</div>';
 }
 
 function renderAnalysis(){
@@ -298,17 +341,23 @@ function renderAnalysis(){
     '台新':'#e5a4a4',
     '富邦':'#e8c56f'
   };
+  // 分母與「本月淨支出」使用相同淨額邏輯：消費加總扣除退刷，不能把退刷轉正加上。
   const bankParts = ['中信','國泰','台新','富邦'].map(bank => ({
     label: bank,
     color: bankColors[bank],
-    value: list.filter(r => r.bank === bank).reduce((sum, r) => sum + Math.abs(signedTwd(r)), 0)
+    value: list.filter(r => r.bank === bank).reduce((sum, r) => sum + signedTwd(r), 0)
   }));
-  const bankTotal = bankParts.reduce((sum, p) => sum + p.value, 0);
+  const bankTotal = bankParts.reduce((sum,p)=>sum+Math.max(0,p.value),0);
   const bankDonut = document.getElementById('bankDonut');
   if(bankDonut) bankDonut.style.background = donutBackground(bankParts);
   const bankCenter = document.getElementById('bankDonutCenter');
   if(bankCenter) bankCenter.innerHTML = `<strong>${analysisMoney(netTotal)}</strong><span>淨支出</span>`;
   renderLegend(document.getElementById('bankLegend'), bankParts, bankTotal, true);
+  const negativeBanks=bankParts.filter(p=>p.value<0);
+  if(negativeBanks.length){
+    const legend=document.getElementById('bankLegend');
+    if(legend)legend.innerHTML+=negativeBanks.map(p=>'<div class="analysis-legend-row"><span class="analysis-dot" style="background:'+p.color+'"></span><span>'+esc(p.label)+'（淨退刷）</span><strong>'+analysisMoney(p.value)+'</strong></div>').join('');
+  }
 
   const typeParts = [
     {label:'消費', value:purchaseTotal, color:'#75b7de'},
