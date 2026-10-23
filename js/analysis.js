@@ -10,17 +10,17 @@ function analysisMoney(value){
 }
 
 function analysisAvailableYears(){
-  const recordYears=(Array.isArray(records) ? records : [])
-    .map(r => monthKey(r.date)).filter(Boolean).map(m => m.slice(0,4));
-  return [...new Set(recordYears)].sort().reverse();
+  const recordYears=(Array.isArray(records) ? records : []).map(r=>monthKey(r.date)).filter(Boolean).map(k=>k.slice(0,4));
+  const cycled=Object.keys(ccCycleRowsByYear);
+  return [...new Set([...recordYears,...cycled])].sort().reverse();
 }
 
 function analysisAvailableMonthsForYear(year){
   if(!year) return [];
-  return [...new Set((Array.isArray(records) ? records : [])
-    .map(r => monthKey(r.date))
-    .filter(m => m && m.startsWith(`${year}-`))
-    .map(m => m.slice(5, 7)))].sort((a,b) => Number(b) - Number(a));
+  const rows=ccAnalysisRecords(year);
+  const cycleMonths=rows.map(r=>ccCycleStartKey(r)).filter(k=>k.startsWith(year+'-')).map(k=>k.slice(5,7));
+  const provisional=(Array.isArray(records)?records:[]).map(r=>monthKey(r.date)).filter(k=>k.startsWith(year+'-')).map(k=>k.slice(5,7));
+  return [...new Set(cycleMonths.length?cycleMonths:provisional)].sort((a,b)=>Number(b)-Number(a));
 }
 
 function ensureAnalysisPeriod(){
@@ -91,7 +91,7 @@ function renderMonthComparison(selectedKey, currentNet){
   if(!box) return;
 
   const prevKey = previousMonthKey(selectedKey);
-  const prevList = (Array.isArray(records) ? records : []).filter(r => monthKey(r.date) === prevKey);
+  const prevList = ccAnalysisMonthList(prevKey);
   const prevNet = netTotalForList(prevList);
   const currentLabel = selectedKey ? `${Number(selectedKey.slice(5))}月` : '本月';
   const prevLabel = prevKey ? `${Number(prevKey.slice(5))}月` : '上月';
@@ -176,8 +176,8 @@ function renderMonthlyTransactionCounts(year, selectedKey){
     month: i+1, key: `${year}-${String(i+1).padStart(2,'0')}`, purchase:0, refund:0
   }));
   if(year){
-    (Array.isArray(records) ? records : []).forEach(r => {
-      const key = monthKey(r.date);
+    ccAnalysisRecords(year).forEach(r => {
+      const key = ccCycleStartKey(r);
       if(!key || !key.startsWith(year+'-')) return;
       const index = Number(key.slice(5,7))-1;
       if(index<0 || index>=12) return;
@@ -205,25 +205,26 @@ function renderMonthlyTransactionCounts(year, selectedKey){
 // 與已繳帳單不同：未繳、未出帳的消費仍計入；退款/退刷抵扣。
 // 備註「上期剩餘」已搬到本期分頁，只在新帳期計算一次。
 let ccCycleSpendingByYear={};
+let ccCycleRowsByYear={};
 let ccCycleSpendingLoading=new Set();
 let ccCycleSpendingErrors={};
-const CC_CYCLE_SPENDING_CACHE_KEY='cc_cycle_spending_cache_v2_';
+const CC_CYCLE_SPENDING_CACHE_KEY='cc_cycle_spending_cache_v3_';
 const CC_CYCLE_CHECK_MS=60000;
 let ccCycleSpendingLastCheck={};
 function ccReadCycleCache(year){
   try{
     const data=JSON.parse(localStorage.getItem(CC_CYCLE_SPENDING_CACHE_KEY+year)||'null');
-    if(data?.year===year && data.totals && typeof data.totals==='object')return data;
+    if(data?.year===year && data.totals && typeof data.totals==='object' && Array.isArray(data.rows))return data;
   }catch(_){}
   return null;
 }
-function ccStoreCycleCache(year,totals,dataVersion){
-  try{localStorage.setItem(CC_CYCLE_SPENDING_CACHE_KEY+year,JSON.stringify({year,totals,dataVersion:dataVersion||'',savedAt:new Date().toISOString()}));}catch(_){}
+function ccStoreCycleCache(year,totals,dataVersion,rows){
+  try{localStorage.setItem(CC_CYCLE_SPENDING_CACHE_KEY+year,JSON.stringify({year,totals,rows,dataVersion:dataVersion||'',savedAt:new Date().toISOString()}));}catch(_){}
 }
 function ccHydrateCycleCache(year){
-  if(ccCycleSpendingByYear[year])return;
+  if(ccCycleSpendingByYear[year] && ccCycleRowsByYear[year])return;
   const cached=ccReadCycleCache(year);
-  if(cached)ccCycleSpendingByYear[year]=cached.totals;
+  if(cached){ccCycleSpendingByYear[year]=cached.totals;ccCycleRowsByYear[year]=cached.rows;}
 }
 async function ccCheckCycleSpendingVersion(year){
   if(!year || ccCycleSpendingLoading.has(year) || !navigator.onLine)return;
@@ -243,6 +244,14 @@ function ccCycleStartKey(record){
   const source=String(record?.source?.sheetName||'');
   const match=source.match(/^(\d{2})\/(\d{2})\/\d{2}$/);
   return match?'20'+match[1]+'-'+match[2]:'';
+}
+function ccAnalysisRecords(year){
+  ccHydrateCycleCache(year);
+  return ccCycleRowsByYear[year] || [];
+}
+function ccAnalysisMonthList(key){
+  if(!key)return [];
+  return ccAnalysisRecords(key.slice(0,4)).filter(r=>ccCycleStartKey(r)===key);
 }
 function ccCycleSpendingTotals(rows,year){
   const banks=['中信','國泰','台新','富邦'];
@@ -265,17 +274,19 @@ function ccCycleSpendingTotals(rows,year){
   return totals;
 }
 async function ccLoadCycleSpending(year,force=false){
-  if(!year || ccCycleSpendingLoading.has(year) || (!force && ccCycleSpendingByYear[year]))return;
+  if(!year || ccCycleSpendingLoading.has(year) || (!force && ccCycleSpendingByYear[year] && ccCycleRowsByYear[year]))return;
   ccCycleSpendingLoading.add(year);
   ccCycleSpendingErrors[year]='';
   try{
     const cloud=await fetchCloudRecords(Number(year),{cycleRead:true});
-    const totals=ccCycleSpendingTotals(cloud.records,year);
+    const rows=ccUniqueSourceRecords(cloud.records).filter(r=>ccCycleStartKey(r).startsWith(year+'-'));
+    const totals=ccCycleSpendingTotals(rows,year);
     ccCycleSpendingByYear[year]=totals;
+    ccCycleRowsByYear[year]=rows;
     // 優先使用同次交易讀取回傳的資料版本；若沒有則查一次輕量版本。
     let version=cloud.dataVersion||'';
     if(!version){try{version=await fetchDataVersion(Number(year));}catch(_){}}
-    ccStoreCycleCache(year,totals,version);
+    ccStoreCycleCache(year,totals,version,rows);
     ccCycleSpendingLastCheck[year]=Date.now();
   }catch(err){
     ccCycleSpendingErrors[year]=err.message||'無法讀取交易資料';
@@ -343,7 +354,7 @@ function renderAnalysis(){
   }
 
   const selectedKey = selectedAnalysisMonthKey();
-  const list = (Array.isArray(records) ? records : []).filter(r => monthKey(r.date) === selectedKey);
+  const list = ccAnalysisMonthList(selectedKey);
   const purchase = list.filter(r => recordTransactionType(r) !== 'refund');
   const refunds = list.filter(r => recordTransactionType(r) === 'refund');
   const purchaseTotal = purchase.reduce((sum, r) => sum + Math.abs(Number(r.twd) || 0), 0);
@@ -380,10 +391,10 @@ function renderAnalysis(){
     value: list.filter(r => r.bank === bank).reduce((sum, r) => sum + signedTwd(r), 0)
   }));
   const bankTotal = bankParts.reduce((sum,p)=>sum+Math.max(0,p.value),0);
-  // 真正占比以同一批已載入 Sheet 交易按刷卡日期算；金額要與上方淨支出一致。
+  // 銀行占比與上方帳期消費總額使用完全相同的 Sheet 分頁資料。
   const bankSumsCheck=bankParts.reduce((sum,p)=>sum+p.value,0);
   const bankShareInfo=document.getElementById('bankShareSource');
-  if(bankShareInfo)bankShareInfo.textContent='依刷卡日期統計 '+(selectedKey||'所選月份')+' 的 Sheet 交易，消費扣除退刷'+(Math.round((bankSumsCheck-netTotal)*100)!==0?'；銀行加總與淨支出不一致，請重新讀取資料':'，各銀行合計 '+analysisMoney(bankSumsCheck));
+  if(bankShareInfo)bankShareInfo.textContent='依帳期月份 '+(selectedKey||'所選月份')+' 的 Sheet 交易，包含上期剩餘，消費扣除退刷'+(Math.round((bankSumsCheck-netTotal)*100)!==0?'；銀行加總與淨支出不一致，請重新讀取資料':'，各銀行合計 '+analysisMoney(bankSumsCheck));
 
   const bankDonut = document.getElementById('bankDonut');
   if(bankDonut) bankDonut.style.background = donutBackground(bankParts);
