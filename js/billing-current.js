@@ -236,7 +236,7 @@ async function toggleRecordToNext(recordKey){
   try{
     const response=await fetch(API_URL+'?action=health&_='+Date.now(),{cache:'no-store'});
     const health=await response.json();
-    if(!health.ok || !['2.7.1','2.7.2','2.7.3'].includes(String(health.version||'')))throw Error('後端版本不相容；未執行搬移');
+    if(!health.ok || !['2.7.1','2.7.2','2.7.3','2.7.4'].includes(String(health.version||'')))throw Error('後端版本不相容；未執行搬移');
     const result=await postToApi({action:'moveRecordToNextCycle',source:record.source});
     if(!result.record?.source?.rowHash)throw Error('搬移結果尚未確認，請檢查 Sheet');
     if(typeof ccMarkLocalMutation==='function')ccMarkLocalMutation();
@@ -337,6 +337,7 @@ function renderBillingOverview(){
         <div class="billing-cycle-label">${bankPaid ? "上期銀行帳單（已確認繳費）" : verified ? "上期帳單（已確認）" : "上期帳單（尚未核對）"}</div>
         <div class="billing-amount">${verified ? moneyText(knownStatement) : (payable.length && !payableMissing ? moneyText(estimatedPayable) : "待確認")}</div>
         ${bankPaid ? `<div class="billing-note">此期銀行帳單已確認繳納（${esc(paymentRecord.confirmedAt||"日期未提供")}）；交易的刷／繳狀態仍獨立管理。</div>` : ""}
+        ${bankPaid ? `<button type="button" class="billing-sync-paid" data-bank="${esc(bank)}" data-month="${esc(snapshotKey)}">同步本期已繳交易至 Sheet</button><div class="billing-note">請先將延後請款的交易搬至下一期；系統會核對本期金額相符後，才把本期交易的「刷」改成「繳」。</div>` : ""}
         ${!verified && payable.length && !payableMissing ? '<div class="billing-warning">以上為 Google Sheet 上期交易明細加總（估算），尚非銀行正式帳單；請核對後再登記。</div>' : ''}
         <button type="button" data-cc-statement="${esc(bank)}" data-month="${esc(snapshotKey)}">登記／修正銀行帳單金額</button>
         <div class="billing-note">${ccStatementCloudReady ? "核對金額已由 GAS 雲端同步；不修改交易 Google Sheet。" : esc(ccStatementCloudError)}</div>
@@ -370,6 +371,7 @@ function renderBillingOverview(){
   root.innerHTML = cards.join('');
 
   root.querySelectorAll('[data-cc-statement]').forEach(btn=>btn.addEventListener('click',()=>ccEditStatement(btn.dataset.ccStatement,btn.dataset.month)));
+  root.querySelectorAll('.billing-sync-paid').forEach(btn=>btn.addEventListener('click',()=>ccSyncPaidTransactions(btn.dataset.bank,btn.dataset.month)));
   root.querySelectorAll('[data-billing-bank]').forEach(btn => {
     btn.addEventListener('click', () => toggleBillingDetail(btn.dataset.billingBank));
   });
