@@ -289,6 +289,7 @@ textarea{min-height:78px;resize:vertical}
   #addPage > .box > .cc-queue-saved,
   #addPage > .box > .cc-queue-panel,
   #addPage > .box > .hidden,
+  #addPage > .box > #foreignFields,
   #addPage > .box > .toggleLine { grid-column: 1 / -1; }
   #addPage > .box > .field:has(textarea) { grid-column: 1 / -1; }
   /* Four bank bills show as a dashboard instead of a tall list. */
