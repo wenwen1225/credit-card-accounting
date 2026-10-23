@@ -12,10 +12,7 @@ function analysisMoney(value){
 function analysisAvailableYears(){
   const recordYears=(Array.isArray(records) ? records : [])
     .map(r => monthKey(r.date)).filter(Boolean).map(m => m.slice(0,4));
-  const paymentYears=(typeof ccStatementCloudReady!=='undefined' && ccStatementCloudReady && typeof ccStatementPayments!=='undefined')
-    ? Object.keys(ccStatementPayments).filter(k=>/^\d{4}-\d{2}$/.test(k)).map(k=>k.slice(0,4))
-    : [];
-  return [...new Set([...recordYears,...paymentYears])].sort().reverse();
+  return [...new Set(recordYears)].sort().reverse();
 }
 
 function analysisAvailableMonthsForYear(year){
@@ -204,94 +201,78 @@ function renderMonthlyTransactionCounts(year, selectedKey){
 }
 
 // 銀行已繳費歷史依「消費帳期月份」列示，不拿交易日期或刷／繳明細加總冒充銀行實繳。
-// 2026/10/23 自各銀行原始 Sheet 的「繳費」列核對的唯讀快照。
-// v2.7.6 可直接讀取 Sheet 最新歷史紀錄；未升級前先用這份已驗證數值。
-// 沒有「繳費」金額者絕不以「帳單」或交易狀態擅自推論。
-const CC_SHEET_PAYMENT_2026={
-  // 按「Sheet 帳期起始月份」歸屬：例如 26/09/06 的 10/23 繳款，列入 9 月。
-  '2026-01':{'國泰':4903},
-  '2026-02':{'中信':57165,'國泰':6790},
-  '2026-03':{'中信':4460,'國泰':5613},
-  '2026-04':{'中信':8671},
-  '2026-05':{'中信':11824,'國泰':9757},
-  '2026-06':{'中信':24889,'國泰':6815},
-  '2026-07':{'中信':10750,'國泰':15450},
-  '2026-08':{'中信':22343,'國泰':12121},
-  '2026-09':{'中信':62814}
-};
-let ccHistoricSheetPayments={};
-let ccHistoricPaymentsLoadedYears=new Set();
-let ccHistoricPaymentsBusyYears=new Set();
-function ccNextMonthKey(key){
-  const [year,month]=key.split('-').map(Number);
-  const next=new Date(year,month,1);
-  return next.getFullYear()+'-'+String(next.getMonth()+1).padStart(2,'0');
+// 各銀行「帳期消費」直接按 Google Sheets 原始分頁的交易明細加總。
+// 與已繳帳單不同：未繳、未出帳的消費仍計入；退款/退刷抵扣。
+// 備註「上期剩餘」已搬到本期分頁，只在新帳期計算一次。
+let ccCycleSpendingByYear={};
+let ccCycleSpendingLoading=new Set();
+let ccCycleSpendingErrors={};
+function ccCycleStartKey(record){
+  const source=String(record?.source?.sheetName||'');
+  const match=source.match(/^(\d{2})\/(\d{2})\/\d{2}$/);
+  return match?'20'+match[1]+'-'+match[2]:'';
 }
-function ccPaidHistoryValue(year,month,bank){
-  const key=year+'-'+String(month).padStart(2,'0');
-  // GAS 雲端付款紀錄的 key 是「實際繳款月」，對應的是上一個月起始的帳期。
-  const paymentKey=ccNextMonthKey(key);
-  const paid=typeof ccStatementPayments!=='undefined'?ccStatementPayments?.[paymentKey]?.[bank]:null;
-  // 當月有新的 GAS「已繳」紀錄，優先使用這筆，避免同一帳單重複計算。
-  if(paid?.paid===true && Number.isFinite(Number(paid.amount)))return Number(paid.amount);
-  const live=ccHistoricSheetPayments?.[key]?.[bank]?.amount;
-  if(Number.isFinite(Number(live)) && live!==undefined && live!==null)return Number(live);
-  return year==='2026'?Number(CC_SHEET_PAYMENT_2026[key]?.[bank]||0):0;
+function ccCycleSpendingTotals(rows,year){
+  const banks=['中信','國泰','台新','富邦'];
+  const totals={};
+  for(let i=1;i<=12;i++){
+    const key=year+'-'+String(i).padStart(2,'0');
+    totals[key]=Object.fromEntries(banks.map(b=>[b,0]));
+  }
+  const seen=new Set();
+  for(const r of rows){
+    const key=ccCycleStartKey(r);
+    if(!totals[key]||!banks.includes(r.bank))continue;
+    const id=r.source?.spreadsheetId+'|'+r.source?.sheetName+'|'+r.source?.row;
+    if(r.source?.row && seen.has(id))continue;
+    if(r.source?.row)seen.add(id);
+    const val=Number(r.twd);
+    if(r.twd===null||r.twd===''||!Number.isFinite(val))continue;
+    totals[key][r.bank]+=typeof signedTwd==='function'?signedTwd(r):val;
+  }
+  return totals;
 }
-async function ccLoadHistoricSheetPayments(year){
-  if(ccHistoricPaymentsLoadedYears.has(year)||ccHistoricPaymentsBusyYears.has(year))return;
-  // 舊版 2.7.5 沒有歷史查詢 API；保留 2026 已核對過的快照即可，不反覆請求。
-  if(!/^2\.7\.(?:[6-9]|[1-9]\d+)$/.test(String(typeof ccStatementBackendVersion!=='undefined'?ccStatementBackendVersion:'')))return;
-  ccHistoricPaymentsBusyYears.add(year);
+async function ccLoadCycleSpending(year){
+  if(!year||ccCycleSpendingLoading.has(year)||ccCycleSpendingByYear[year])return;
+  ccCycleSpendingLoading.add(year);
+  ccCycleSpendingErrors[year]='';
   try{
-    const response=await fetch(APP_CONFIG.apiUrl+'?action=paymentHistory&year='+encodeURIComponent(year)+'&_='+Date.now(),{cache:'no-store'});
-    if(!response.ok)throw Error('HTTP '+response.status);
-    const data=await response.json();
-    if(!data.ok||!data.history||typeof data.history!=='object')throw Error(data.error||'歷史繳款資料格式錯誤');
-    // 舊 v2.7.6 曾依實際繳款月份分組，可能把多個帳期合併在一起；
-    // 沒有帳期分組標記的回應不可覆寫已核對的歷史數值。
-    if(data.grouping!=='cycleStartMonth')throw Error('GAS 歷史查詢尚未採帳期月份歸類，保留原始 Sheet 核對快照');
-    Object.keys(ccHistoricSheetPayments).filter(key=>key.startsWith(year+'-')).forEach(key=>delete ccHistoricSheetPayments[key]);
-    Object.assign(ccHistoricSheetPayments,data.history);
-    ccHistoricPaymentsLoadedYears.add(year);
-    renderBankPaymentHistory(year);
-  }catch(err){console.warn('歷史繳款讀取失敗，保留已核對的本機快照',err);}
-  finally{ccHistoricPaymentsBusyYears.delete(year);}
+    const cloud=await fetchCloudRecords(Number(year),{cycleRead:true});
+    ccCycleSpendingByYear[year]=ccCycleSpendingTotals(cloud.records,year);
+  }catch(err){
+    ccCycleSpendingErrors[year]=err.message||'無法讀取交易資料';
+  }finally{
+    ccCycleSpendingLoading.delete(year);
+    if(analysisYear===year)renderBankPaymentHistory(year);
+  }
 }
 function renderBankPaymentHistory(year){
   const root=document.getElementById('bankPaymentHistory');
   if(!root)return;
-  const ready=typeof ccStatementCloudReady!=='undefined' && ccStatementCloudReady;
-  if(!ready){
-    root.innerHTML='<div class="analysis-empty-small">目前無法讀取銀行已繳確認紀錄，請檢查連線後重試；不顯示未經核對的 NT$0。</div>';
+  if(!year){root.innerHTML='<div class="analysis-empty-small">請選擇年份</div>';return;}
+  if(!ccCycleSpendingByYear[year]){
+    root.innerHTML='<div class="analysis-empty-small">'+(ccCycleSpendingErrors[year]?'Sheet 讀取失敗：'+esc(ccCycleSpendingErrors[year])+'。請重新進入分析頁再試。':'正在依 Google Sheets 帳期分頁計算四家銀行消費…')+'</div>';
+    if(!ccCycleSpendingLoading.has(year) && !ccCycleSpendingErrors[year])void ccLoadCycleSpending(year);
     return;
   }
-  if(!year){root.innerHTML='<div class="analysis-empty-small">尚未選擇年份</div>';return;}
-  void ccLoadHistoricSheetPayments(year);
-  const banks=['中信','國泰','台新','富邦'];
-  const totals=Object.fromEntries(banks.map(bank=>[bank,0]));
+  const banks=['中信','國泰','台新','富邦'],totals=Object.fromEntries(banks.map(b=>[b,0]));
   const rows=Array.from({length:12},(_,i)=>{
-    const key=year+'-'+String(i+1).padStart(2,'0');
-    let total=0;
+    const key=year+'-'+String(i+1).padStart(2,'0'),amounts=ccCycleSpendingByYear[year][key]||{};
+    let monthSum=0;
     const cells=banks.map(bank=>{
-      const amount=ccPaidHistoryValue(year,i+1,bank);
-      total+=amount;
-      totals[bank]+=amount;
+      const amount=Number(amounts[bank]||0);
+      monthSum+=amount;totals[bank]+=amount;
       return '<td>'+analysisMoney(amount)+'</td>';
     }).join('');
-    return '<tr'+(key===selectedAnalysisMonthKey()?' class="selected"':'')+'><th scope="row">'+(i+1)+'月</th>'+cells+'<td class="payment-total">'+analysisMoney(total)+'</td></tr>';
+    return '<tr'+(key===selectedAnalysisMonthKey()?' class="selected"':'')+'><th scope="row">'+(i+1)+'月</th>'+cells+'<td class="payment-total">'+analysisMoney(monthSum)+'</td></tr>';
   }).join('');
-  const grand=banks.reduce((n,bank)=>n+totals[bank],0);
-  root.innerHTML='<div class="payment-history-scroll"><table class="payment-history-table"><thead><tr><th scope="col">帳期月</th>'+
-    banks.map(bank=>'<th scope="col">'+bank+'</th>').join('')+'<th scope="col">合計</th></tr></thead><tbody>'+
-    rows+'</tbody><tfoot><tr><th scope="row">全年合計</th>'+
-    banks.map(bank=>'<td>'+analysisMoney(totals[bank])+'</td>').join('')+
-    '<td class="payment-total">'+analysisMoney(grand)+'</td></tr></tfoot></table></div>'+
-    '<div class="analysis-payment-note">依消費帳期起始月份：例如 9 月消費、10 月繳款，會歸在 9 月帳期。已繳雲端紀錄優先；歷史資料依對應 Sheet 的「繳費」列。'+
-    (!ccHistoricPaymentsLoadedYears.has(year) && year==='2026'?'歷史欄位目前採 2026/10/23 已核對的 Sheet 快照；更新修正版 GAS v2.7.6 後可自動重讀。':'')+
-    ' NT$0 代表未找到已繳記錄，不代表銀行沒有出帳。</div>';
+  const yearSum=banks.reduce((v,b)=>v+totals[b],0);
+  root.innerHTML='<div class="payment-history-scroll"><table class="payment-history-table"><thead><tr><th scope="col">帳期月份</th>'+
+    banks.map(b=>'<th scope="col">'+b+'</th>').join('')+'<th scope="col">合計</th></tr></thead><tbody>'+
+    rows+'</tbody><tfoot><tr><th scope="row">全年合計</th>'+banks.map(b=>'<td>'+analysisMoney(totals[b])+'</td>').join('')+
+    '<td class="payment-total">'+analysisMoney(yearSum)+'</td></tr></tfoot></table></div>'+
+    '<div class="analysis-payment-note">依 Google Sheets 實際帳期分頁中的交易明細加總，消費減退刷；與「已繳費金額」不同。本期尚未繳費的交易也會列入；上期剩餘只在搬入的帳期計一次。</div>';
 }
-
 function renderAnalysis(){
   const root = document.getElementById('analysisPage');
   if(!root) return;
@@ -359,6 +340,11 @@ function renderAnalysis(){
     value: list.filter(r => r.bank === bank).reduce((sum, r) => sum + signedTwd(r), 0)
   }));
   const bankTotal = bankParts.reduce((sum,p)=>sum+Math.max(0,p.value),0);
+  // 真正占比以同一批已載入 Sheet 交易按刷卡日期算；金額要與上方淨支出一致。
+  const bankSumsCheck=bankParts.reduce((sum,p)=>sum+p.value,0);
+  const bankShareInfo=document.getElementById('bankShareSource');
+  if(bankShareInfo)bankShareInfo.textContent='依刷卡日期統計 '+(selectedKey||'所選月份')+' 的 Sheet 交易，消費扣除退刷'+(Math.round((bankSumsCheck-netTotal)*100)!==0?'；銀行加總與淨支出不一致，請重新讀取資料':'，各銀行合計 '+analysisMoney(bankSumsCheck));
+
   const bankDonut = document.getElementById('bankDonut');
   if(bankDonut) bankDonut.style.background = donutBackground(bankParts);
   const bankCenter = document.getElementById('bankDonutCenter');
@@ -405,5 +391,12 @@ renderRecords = function(){
   renderAnalysis();
 };
 
-document.querySelector('[data-page="analysisPage"]')?.addEventListener('click', renderAnalysis);
+document.querySelector('[data-page="analysisPage"]')?.addEventListener('click', ()=>{
+  // 重新進入分析時重新讀取帳期明細，避免跨裝置變更仍顯示舊快照。
+  if(analysisYear){
+    delete ccCycleSpendingByYear[analysisYear];
+    ccCycleSpendingErrors[analysisYear]='';
+  }
+  renderAnalysis();
+});
 renderAnalysis();
