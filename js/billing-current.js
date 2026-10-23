@@ -40,6 +40,7 @@ async function ccRefreshStatementArchive(){
     ccStatementCloudError='無法同步銀行帳單核對金額：'+err.message+'。目前僅顯示本機舊資料，禁止編輯，避免兩台裝置互相覆蓋。';
   }
   if(typeof renderBillingOverview==='function')renderBillingOverview();
+  if(typeof renderReminders==='function')void renderReminders();
 }
 async function ccEditStatement(bank,month){
   if(ccStatementWriteBusy)return;
@@ -83,6 +84,7 @@ async function ccEditStatement(bank,month){
     ccStatementCloudError='';
     try{localStorage.setItem(CC_STATEMENT_KEY,JSON.stringify(data.archive));}catch(err){console.warn('本機快取寫入失敗',err);}
     renderBillingOverview();
+    if(typeof renderReminders==='function')void renderReminders();
     alert('銀行帳單金額已儲存到雲端，可在其他裝置重新開啟網頁查看。');
   }catch(err){
     // 不確定是否已送達 GAS 時，一律重新讀取雲端；不可將本機值冒充雲端成功。

@@ -342,7 +342,7 @@ async function deleteRec(id){
 }
 modalDelete.addEventListener('click',()=>{ const id=Number(editId.value); editModal.classList.remove('show'); deleteRec(id); });
 
-// 繳費提醒只以最新 Google Sheet 實際帳期分頁的未繳金額為準；讀取失敗不猜測逾期。
+// 繳費提醒先以銀行核對金額為準；Sheet 刷／繳只判斷狀態與提供對帳差額。
 let ccReminderRequest=0;
 async function renderReminders(){
   const request=++ccReminderRequest;
@@ -365,14 +365,28 @@ async function renderReminders(){
       const selected=all.filter(r=>r.bank===bank && r.source?.sheetName===cycle.tab);
       const unpaid=selected.filter(r=>(r.status||'刷')==='刷');
       if(!unpaid.length || unpaid.some(r=>r.twd===null || r.twd==='' || !Number.isFinite(Number(r.twd))))continue;
-      const amount=unpaid.reduce((sum,r)=>sum+(r.transactionType==='refund'?-Math.abs(Number(r.twd)):Number(r.twd)),0);
-      if(!(amount>0))continue;
+      const detailAmount=unpaid.reduce((sum,r)=>sum+(r.transactionType==='refund'?-Math.abs(Number(r.twd)):Number(r.twd)),0);
+      if(!(detailAmount>0))continue;
+      const statementMonth=y+'-'+pad(m);
+      const cloudReady=typeof ccStatementCloudReady!=='undefined' && ccStatementCloudReady;
+      const verified=cloudReady && typeof ccStatementArchive!=='undefined' ? ccStatementArchive?.[statementMonth]?.[bank] : undefined;
+      const confirmed=typeof verified==='number' && Number.isFinite(verified);
+      const paidRows=selected.some(r=>(r.status||'刷')==='繳');
+      const statementDiff=confirmed && !paidRows && Math.round((detailAmount-verified)*100)!==0;
       const due=cfg.paymentDueDay;
       const label=d===due-1?'明天要繳費':d===due?'今天到期':`已逾期 ${d-due} 天`;
-      cards.push(`<div class="remind ${d>=due?'due':''}"><div class="remTop"><div><div class="remTitle">${esc(bank)}信用卡繳費提醒</div><div class="remMeta">繳費期限：${m}/${due}｜未繳 NT$${amount.toLocaleString('zh-TW')}</div></div><div class="tag">${label}</div></div><button class="donePay" onclick="markPaid('${bank}',${y},${m})">完成繳費</button></div>`);
+      const amountLine=confirmed
+        ? `銀行核對帳單 NT$${verified.toLocaleString('zh-TW')}${paidRows?'（部分交易已標繳，剩餘額待核對）':''}`
+        : `Sheet 未繳明細估算 NT$${detailAmount.toLocaleString('zh-TW')}（尚無已核對銀行帳單）`;
+      const mismatchLine=statementDiff
+        ? `<div class="billing-warning">Sheet 未繳明細合計 NT$${detailAmount.toLocaleString('zh-TW')}，與銀行帳單差 NT$${Math.abs(detailAmount-verified).toLocaleString('zh-TW')}；請核對，暫停批次完成繳費。</div>`
+        : '';
+      const buttonDisabled=statementDiff || paidRows || !cloudReady;
+      const buttonTitle=statementDiff?'金額有差異，暫停完成繳費':paidRows?'部分交易已標繳，請核對明細':!cloudReady?'正在核對銀行帳單雲端資料':'完成繳費';
+      cards.push(`<div class="remind ${d>=due?'due':''}"><div class="remTop"><div><div class="remTitle">${esc(bank)}信用卡繳費提醒</div><div class="remMeta">繳費期限：${m}/${due}｜${esc(amountLine)}</div></div><div class="tag">${label}</div></div>${mismatchLine}<button class="donePay" onclick="markPaid('${bank}',${y},${m})" ${buttonDisabled?'disabled':''}>${buttonTitle}</button></div>`);
     }
     reminders.innerHTML=cards.join('');
-    nextInfo.textContent=cards.length?'已依最新 Google Sheet 對應帳期及未繳交易核對。':'目前沒有經 Google Sheet 確認的應繳款項。';
+    nextInfo.textContent=cards.length?'已比對銀行已核對帳單及最新 Google Sheet 未繳交易；若金額不同，請先核對差額。':'目前沒有經 Google Sheet 確認的應繳款項。';
   }catch(err){
     if(request!==ccReminderRequest)return;
     reminders.innerHTML='';
