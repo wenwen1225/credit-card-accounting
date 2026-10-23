@@ -203,27 +203,35 @@ function renderMonthlyTransactionCounts(year, selectedKey){
     }).join('')+'</div></div><div class="monthly-count-legend"><span>● 消費筆數</span><span>● 退刷筆數</span></div>';
 }
 
-// 銀行已繳費歷史依「繳款月份」列示，不拿交易日期或刷／繳明細加總冒充銀行實繳。
+// 銀行已繳費歷史依「消費帳期月份」列示，不拿交易日期或刷／繳明細加總冒充銀行實繳。
 // 2026/10/23 自各銀行原始 Sheet 的「繳費」列核對的唯讀快照。
 // v2.7.6 可直接讀取 Sheet 最新歷史紀錄；未升級前先用這份已驗證數值。
 // 沒有「繳費」金額者絕不以「帳單」或交易狀態擅自推論。
 const CC_SHEET_PAYMENT_2026={
-  '2026-01':{'中信':4260,'國泰':10138},
-  '2026-03':{'中信':57165,'國泰':11693},
-  '2026-04':{'中信':4460,'國泰':5613},
-  '2026-05':{'中信':8671},
-  '2026-06':{'中信':11824,'國泰':9757},
-  '2026-07':{'中信':24889,'國泰':6815},
-  '2026-08':{'中信':10750,'國泰':15450},
-  '2026-09':{'中信':22343,'國泰':12121},
-  '2026-10':{'中信':62814}
+  // 按「Sheet 帳期起始月份」歸屬：例如 26/09/06 的 10/23 繳款，列入 9 月。
+  '2026-01':{'國泰':4903},
+  '2026-02':{'中信':57165,'國泰':6790},
+  '2026-03':{'中信':4460,'國泰':5613},
+  '2026-04':{'中信':8671},
+  '2026-05':{'中信':11824,'國泰':9757},
+  '2026-06':{'中信':24889,'國泰':6815},
+  '2026-07':{'中信':10750,'國泰':15450},
+  '2026-08':{'中信':22343,'國泰':12121},
+  '2026-09':{'中信':62814}
 };
 let ccHistoricSheetPayments={};
 let ccHistoricPaymentsLoadedYears=new Set();
 let ccHistoricPaymentsBusyYears=new Set();
+function ccNextMonthKey(key){
+  const [year,month]=key.split('-').map(Number);
+  const next=new Date(year,month,1);
+  return next.getFullYear()+'-'+String(next.getMonth()+1).padStart(2,'0');
+}
 function ccPaidHistoryValue(year,month,bank){
   const key=year+'-'+String(month).padStart(2,'0');
-  const paid=typeof ccStatementPayments!=='undefined'?ccStatementPayments?.[key]?.[bank]:null;
+  // GAS 雲端付款紀錄的 key 是「實際繳款月」，對應的是上一個月起始的帳期。
+  const paymentKey=ccNextMonthKey(key);
+  const paid=typeof ccStatementPayments!=='undefined'?ccStatementPayments?.[paymentKey]?.[bank]:null;
   // 當月有新的 GAS「已繳」紀錄，優先使用這筆，避免同一帳單重複計算。
   if(paid?.paid===true && Number.isFinite(Number(paid.amount)))return Number(paid.amount);
   const live=ccHistoricSheetPayments?.[key]?.[bank]?.amount;
@@ -240,6 +248,9 @@ async function ccLoadHistoricSheetPayments(year){
     if(!response.ok)throw Error('HTTP '+response.status);
     const data=await response.json();
     if(!data.ok||!data.history||typeof data.history!=='object')throw Error(data.error||'歷史繳款資料格式錯誤');
+    // 舊 v2.7.6 曾依實際繳款月份分組，可能把多個帳期合併在一起；
+    // 沒有帳期分組標記的回應不可覆寫已核對的歷史數值。
+    if(data.grouping!=='cycleStartMonth')throw Error('GAS 歷史查詢尚未採帳期月份歸類，保留原始 Sheet 核對快照');
     Object.keys(ccHistoricSheetPayments).filter(key=>key.startsWith(year+'-')).forEach(key=>delete ccHistoricSheetPayments[key]);
     Object.assign(ccHistoricSheetPayments,data.history);
     ccHistoricPaymentsLoadedYears.add(year);
@@ -271,13 +282,13 @@ function renderBankPaymentHistory(year){
     return '<tr'+(key===selectedAnalysisMonthKey()?' class="selected"':'')+'><th scope="row">'+(i+1)+'月</th>'+cells+'<td class="payment-total">'+analysisMoney(total)+'</td></tr>';
   }).join('');
   const grand=banks.reduce((n,bank)=>n+totals[bank],0);
-  root.innerHTML='<div class="payment-history-scroll"><table class="payment-history-table"><thead><tr><th scope="col">繳款月</th>'+
+  root.innerHTML='<div class="payment-history-scroll"><table class="payment-history-table"><thead><tr><th scope="col">帳期月</th>'+
     banks.map(bank=>'<th scope="col">'+bank+'</th>').join('')+'<th scope="col">合計</th></tr></thead><tbody>'+
     rows+'</tbody><tfoot><tr><th scope="row">全年合計</th>'+
     banks.map(bank=>'<td>'+analysisMoney(totals[bank])+'</td>').join('')+
     '<td class="payment-total">'+analysisMoney(grand)+'</td></tr></tfoot></table></div>'+
-    '<div class="analysis-payment-note">依銀行實際繳款月份。已確認繳費的雲端紀錄優先；歷史資料取自 Sheet 的「繳費」列。'+
-    (!ccHistoricPaymentsLoadedYears.has(year) && year==='2026'?'歷史欄位目前採 2026/10/23 已核對的 Sheet 快照；更新 GAS v2.7.6 後可自動重讀。':'')+
+    '<div class="analysis-payment-note">依消費帳期起始月份：例如 9 月消費、10 月繳款，會歸在 9 月帳期。已繳雲端紀錄優先；歷史資料依對應 Sheet 的「繳費」列。'+
+    (!ccHistoricPaymentsLoadedYears.has(year) && year==='2026'?'歷史欄位目前採 2026/10/23 已核對的 Sheet 快照；更新修正版 GAS v2.7.6 後可自動重讀。':'')+
     ' NT$0 代表未找到已繳記錄，不代表銀行沒有出帳。</div>';
 }
 
