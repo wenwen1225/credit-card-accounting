@@ -42,7 +42,7 @@ async function ccFinishCycleBill(bank,month){
   try{
     // 跨裝置資料一律重新從 GAS 讀取，不根據快取做修改。
     await ccRefreshStatementArchive();
-    if(!ccStatementCloudReady || !['2.7.4','2.7.5'].includes(ccStatementBackendVersion) || !ccStatementPaymentRevision)
+    if(!ccStatementCloudReady || !['2.7.4','2.7.5','2.7.6'].includes(ccStatementBackendVersion) || !ccStatementPaymentRevision)
       throw Error('請確認 GAS v2.7.4 已部署且銀行帳單資料同步成功');
     const [y,m]=month.split('-').map(Number);
     const cycle=ccPayableCycle(bank,y,m);
@@ -74,7 +74,7 @@ async function ccFinishCycleBill(bank,month){
     const misplacedStatusRows=currentRows.filter(r=>(r.status||'刷')==='刷'
       && getBankCycle(bank,r.date).tab!==cycle.tab
       && !String(r.note||'').includes('上期剩餘'));
-    if(misplacedStatusRows.length && ccStatementBackendVersion!=='2.7.5')
+    if(misplacedStatusRows.length && !['2.7.5','2.7.6'].includes(ccStatementBackendVersion))
       throw Error('本期有 '+misplacedStatusRows.length+' 筆跨帳期入帳交易（例如 10/06 海外手續費），GAS v2.7.4 無法安全更新其「刷／繳」。請先更新 GAS v2.7.5，再重新按一次；已搬移的「上期剩餘」會保留');
     const pending=currentRows.filter(r=>(r.status||'刷')==='刷');
     planned=pending.length;
