@@ -395,6 +395,17 @@ async function renderReminders(){
     console.warn('繳費提醒核對失敗',err);
   }
 }
+// 返回網頁時重新核對提醒，避免其他裝置已完成繳費卻還顯示舊卡片。
+let ccLastReminderFocusCheck=0;
+function ccRefreshRemindersOnReturn(){
+  if(document.visibilityState==='hidden' || !navigator.onLine)return;
+  if(typeof ccCyclePaymentBusy!=='undefined' && ccCyclePaymentBusy)return;
+  if(Date.now()-ccLastReminderFocusCheck<30000)return;
+  ccLastReminderFocusCheck=Date.now();
+  void renderReminders();
+}
+window.addEventListener('focus',ccRefreshRemindersOnReturn);
+window.addEventListener('visibilitychange',ccRefreshRemindersOnReturn);
 async function markPaid(bank,y,m){
   if(typeof ccMarkCyclePaid!=='function'){alert('帳期繳費模組尚未載入，請重新整理網頁。');return;}
   await ccMarkCyclePaid(bank,y,m);
