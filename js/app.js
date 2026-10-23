@@ -53,7 +53,7 @@ let bankFilter = '全部';
 function persistPaid(){ localStorage.setItem(PAY_KEY, JSON.stringify(paid)); }
 function esc(s){ return String(s ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
 function pad(n){ return String(n).padStart(2, '0'); }
-function ccCurrencySymbol(currency){return {TWD:'NT$',KRW:'₩',JPY:'¥',USD:'US$',EUR:'€'}[String(currency||'').toUpperCase()]||String(currency||'');}
+function ccCurrencySymbol(currency){return {TWD:'NT$',KRW:'₩',JPY:'¥',USD:'US$',EUR:'€',CNY:'¥'}[String(currency||'').toUpperCase()]||String(currency||'');}
 function ccForeignDisplay(currency,amount){return ccCurrencySymbol(currency)+Number(amount).toLocaleString('en-US',{maximumFractionDigits:2});}
 function fmtMoney(n){ return n === null || n === '' || n === undefined ? '待補' : 'NT$' + Number(n).toLocaleString(); }
 function bankClass(b){ return b === '中信' ? 'ctbc' : b === '國泰' ? 'cathay' : b === '台新' ? 'taishin' : 'fubon'; }
