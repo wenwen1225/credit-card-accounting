@@ -61,8 +61,7 @@ async function ccFinishCycleBill(bank,month){
     if(!rows.length)throw Error('找不到 '+cycle.tab+' 的交易，請確認 Google Sheet');
     const invalid=rows.filter(r=>r.twd===null || r.twd==='' || !Number.isFinite(Number(r.twd)) || !r.source?.rowHash);
     if(invalid.length)throw Error('帳期內有 '+invalid.length+' 筆金額或來源驗證不完整，已停止修改');
-    const misplaced=rows.filter(r=>!inDateRange(r.date,cycle.s,cycle.e) && !String(r.note||'').includes('上期剩餘'));
-    if(misplaced.length)throw Error('有 '+misplaced.length+' 筆刷卡日期不屬於此帳期，請先核對');
+    // 真正帳期以 Sheet 分頁為準；補登及入帳日晚於結帳日不在此阻擋。
     const deferred=rows.filter(r=>(r.status||'刷')==='刷' && CC_DEFER_NOTE.test(String(r.note||'')));
     const markedButPaid=rows.filter(r=>(r.status||'刷')!=='刷' && CC_DEFER_NOTE.test(String(r.note||'')));
     if(markedButPaid.length)throw Error('有 '+markedButPaid.length+' 筆備註延至下期但已標「繳」，需要先人工核對');
