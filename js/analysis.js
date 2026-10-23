@@ -10,10 +10,12 @@ function analysisMoney(value){
 }
 
 function analysisAvailableYears(){
-  return [...new Set((Array.isArray(records) ? records : [])
-    .map(r => monthKey(r.date))
-    .filter(Boolean)
-    .map(m => m.slice(0, 4)))].sort().reverse();
+  const recordYears=(Array.isArray(records) ? records : [])
+    .map(r => monthKey(r.date)).filter(Boolean).map(m => m.slice(0,4));
+  const paymentYears=(typeof ccStatementCloudReady!=='undefined' && ccStatementCloudReady && typeof ccStatementPayments!=='undefined')
+    ? Object.keys(ccStatementPayments).filter(k=>/^\d{4}-\d{2}$/.test(k)).map(k=>k.slice(0,4))
+    : [];
+  return [...new Set([...recordYears,...paymentYears])].sort().reverse();
 }
 
 function analysisAvailableMonthsForYear(year){
@@ -201,6 +203,41 @@ function renderMonthlyTransactionCounts(year, selectedKey){
     }).join('')+'</div></div><div class="monthly-count-legend"><span>● 消費筆數</span><span>● 退刷筆數</span></div>';
 }
 
+// 銀行已繳費歷史依「繳款月份」列示，不拿交易日期或刷／繳明細加總冒充銀行實繳。
+function renderBankPaymentHistory(year){
+  const root=document.getElementById('bankPaymentHistory');
+  if(!root)return;
+  const ready=typeof ccStatementCloudReady!=='undefined' && ccStatementCloudReady;
+  if(!ready){
+    root.innerHTML='<div class="analysis-empty-small">目前無法讀取雲端銀行繳費紀錄，請確認連線後重新開啟。為避免誤認，本區暫不顯示 NT$0。</div>';
+    return;
+  }
+  const banks=['中信','國泰','台新','富邦'];
+  const payments=typeof ccStatementPayments!=='undefined' && ccStatementPayments?ccStatementPayments:{};
+  const totals=Object.fromEntries(banks.map(b=>[b,0]));
+  const rows=Array.from({length:12},(_,i)=>{
+    const key=year+'-'+String(i+1).padStart(2,'0');
+    let sum=0;
+    const cells=banks.map(bank=>{
+      const entry=payments[key]?.[bank];
+      const amount=entry?.paid===true && Number.isFinite(Number(entry.amount)) && Number(entry.amount)>=0
+        ? Number(entry.amount):0;
+      totals[bank]+=amount;
+      sum+=amount;
+      return '<td>'+analysisMoney(amount)+'</td>';
+    }).join('');
+    const isCurrent=key===selectedAnalysisMonthKey();
+    return '<tr'+(isCurrent?' class="selected"':'')+'><th scope="row">'+(i+1)+'月</th>'+cells+'<td class="payment-total">'+analysisMoney(sum)+'</td></tr>';
+  }).join('');
+  const total=banks.reduce((n,b)=>n+totals[b],0);
+  root.innerHTML='<div class="payment-history-scroll"><table class="payment-history-table"><thead><tr><th scope="col">繳款月</th>'+
+    banks.map(bank=>'<th scope="col">'+bank+'</th>').join('')+
+    '<th scope="col">合計</th></tr></thead><tbody>'+rows+
+    '</tbody><tfoot><tr><th scope="row">全年合計</th>'+banks.map(bank=>'<td>'+analysisMoney(totals[bank])+'</td>').join('')+
+    '<td class="payment-total">'+analysisMoney(total)+'</td></tr></tfoot></table></div>'+
+    '<div class="analysis-payment-note">僅統計已在雲端確認「銀行帳單已繳」的金額。NT$0 代表該月尚無已繳紀錄，不代表銀行沒有出帳；月份依繳款月計算。</div>';
+}
+
 function renderAnalysis(){
   const root = document.getElementById('analysisPage');
   if(!root) return;
@@ -249,6 +286,7 @@ function renderAnalysis(){
   if(pendingEl) pendingEl.textContent = `${pendingCount} 筆`;
   pendingEl?.closest('.analysis-stat')?.classList.toggle('hidden',pendingCount===0);
 
+  renderBankPaymentHistory(analysisYear);
   renderMonthlyTransactionCounts(analysisYear, selectedKey);
   renderMonthComparison(selectedKey, netTotal);
   renderWeeklyTrend(list);
