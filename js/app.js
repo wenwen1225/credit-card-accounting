@@ -380,7 +380,7 @@ async function renderReminders(){
       const diffLine=difference?`<div class="billing-note">Sheet 仍標「刷」的交易加總 NT$${detailAmount.toLocaleString('zh-TW')}，與銀行帳單差 NT$${Math.abs(detailAmount-statement).toLocaleString('zh-TW')}。可能是延後請款；請依銀行帳單確認，本功能不會修改交易狀態。</div>`:'';
       const canConfirm=confirmed && cloudReady && ccStatementBackendVersion==='2.7.4';
       const buttonLabel=!cloudReady?'銀行帳單雲端資料尚未載入':!confirmed?'請先登記銀行正式帳單金額':!canConfirm?'需先更新 GAS v2.7.4':'確認銀行帳單已繳';
-      cards.push(`<div class="remind ${d>=due?'due':''}"><div class="remTop"><div><div class="remTitle">${esc(bank)}信用卡繳費提醒</div><div class="remMeta">繳費期限：${m}/${due}｜${esc(mainAmount)}</div></div><div class="tag">${label}</div></div>${diffLine}<button class="donePay" onclick="markPaid('${bank}',${y},${m})" ${canConfirm?'':'disabled'}>${canConfirm?'確認銀行帳單已繳':buttonLabel}</button></div>`);
+      cards.push(`<div class="remind ${d>=due?'due':''}"><div class="remTop"><div><div class="remTitle">${esc(bank)}信用卡繳費提醒</div><div class="remMeta">結帳日：${cycle.e.getMonth()+1}/${cycle.e.getDate()}｜繳費期限：${m}/${due}｜${esc(mainAmount)}</div></div><div class="tag">${label}</div></div>${diffLine}<button class="donePay" onclick="markPaid('${bank}',${y},${m})" ${canConfirm?'':'disabled'}>${canConfirm?'確認銀行帳單已繳':buttonLabel}</button></div>`);
     }
     reminders.innerHTML=cards.join('');
     nextInfo.textContent=cards.length?'已依銀行核對帳單顯示應繳金額；Sheet 交易如有延後請款會另列差額，兩者不混算。':'目前沒有經 Google Sheet 確認的應繳款項。';
