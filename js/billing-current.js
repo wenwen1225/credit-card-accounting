@@ -184,7 +184,9 @@ function moneyText(value){
 }
 
 function rangeText(cycle){
-  return `${fmtDate(cycle.s)}～${fmtDate(cycle.e)}`;
+  // 帳務卡片統一縮短為 yy/mm/dd，避免手機畫面擠壓；不改動實際帳期日期。
+  const shortDate = d => `${String(d.getFullYear()).slice(-2)}/${pad(d.getMonth()+1)}/${pad(d.getDate())}`;
+  return `${shortDate(cycle.s)}～${shortDate(cycle.e)}`;
 }
 
 // 以已結帳帳期的結束日推算其下一個繳款日，不使用今天的月份。
@@ -337,7 +339,7 @@ function renderBillingOverview(){
 
         <div class="billing-cycle-label">${bankPaid ? `本期累積消費（${rangeText(openCycle)}）` : verified ? "上期帳單（已確認）" : "上期帳單（尚未核對）"}</div>
         <div class="billing-amount">${bankPaid ? moneyText(sumTwd(nextAccumulated)) : verified ? moneyText(knownStatement) : (payable.length && !payableMissing ? moneyText(estimatedPayable) : "待確認")}</div>
-        ${bankPaid ? `<div class="billing-note">上期帳單已繳，詳細繳費紀錄可至「分析」查看。</div>` : ""}
+        ${bankPaid ? `<div class="billing-note">上期帳單已繳；「分析」可查看各期消費統計。</div>` : ""}
         ${bankPaid && closedRaw.some(r=>(r.status||"刷")==="刷") ? `<div class="billing-note">本期交易進度尚待同步，請使用上方提醒區完成。</div>` : ""}
         ${!bankPaid && !verified && payable.length && !payableMissing ? '<div class="billing-warning">以上為 Google Sheet 上期交易明細加總（估算），尚非銀行正式帳單；請核對後再登記。</div>' : ''}
         <button type="button" data-cc-statement="${esc(bank)}" data-month="${esc(snapshotKey)}">登記／修正銀行帳單金額</button>
