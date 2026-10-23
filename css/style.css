@@ -307,3 +307,146 @@ textarea{min-height:78px;resize:vertical}
   #billingOverview { display:grid;grid-template-columns: repeat(2,minmax(0,1fr));gap:12px; }
   #billingOverview > .billing-card { min-width:0;margin-bottom:0; }
 }
+
+/* Desktop visual redesign v2 — 2026-10-23.
+   Scoped to large screens so iPhone/mobile layouts remain unchanged. */
+@media (min-width: 1100px) {
+  body {
+    padding-left: 210px;
+    background: radial-gradient(circle at 85% 0%, #e5f4ff 0, transparent 38%),
+                linear-gradient(140deg,#f4f9fc 0%,#edf5fc 100%);
+  }
+  .app {
+    max-width: 1280px;
+    min-height:100dvh;
+    margin:0 auto;
+    padding-bottom:54px;
+  }
+  .app > header {
+    position:relative;
+    top:auto;
+    z-index:19;
+    margin:0 28px;
+    padding:34px 20px 19px;
+    background:transparent;
+    backdrop-filter:none;
+    border-bottom:1px solid #dce9f3;
+  }
+  .app > header h1 { font-size:29px;letter-spacing:-.7px;color:#254965; }
+  .app > header > .sub { font-size:13px;letter-spacing:.01em; }
+  .app > header > .version-card {
+    width:min(100%,430px);
+    margin-top:17px;
+    border:1px solid #dbeaf5;
+    box-shadow:0 4px 18px rgba(46,99,135,.04);
+  }
+  .page {padding:25px 48px 40px;}
+  .page h2 {font-size:21px;letter-spacing:-.35px;}
+  .page .section-label {font-size:13px;margin-top:16px;margin-bottom:11px;}
+  .box,.analysis-card,.compare-card,.analysis-stat,.record,.billing-card,.sum {
+    border-color:#e1eaf3;
+    box-shadow:0 6px 22px rgba(41,96,137,.065);
+    border-radius:19px;
+  }
+  .box,.analysis-card,.compare-card {padding:22px;}
+  #addPage.active > .box {
+    max-width:950px;
+    gap:0 22px;
+    padding:30px 34px 34px;
+    box-shadow:0 18px 60px rgba(52,107,148,.08);
+    border-radius:24px;
+  }
+  #addPage > .box > h2 {border-bottom:1px solid #e3edf5;padding-bottom:19px;margin-bottom:20px;}
+  #addPage .field {margin-bottom:17px;}
+  #addPage input,#addPage select,#addPage textarea {
+    background:#fbfdff;
+    border-color:#dbe8f2;
+    min-height:47px;
+  }
+  input:focus-visible, select:focus-visible, textarea:focus-visible {
+    border-color:#70b5de;
+    box-shadow:0 0 0 3px rgba(116,185,230,.16);
+  }
+  .btn.primary {min-height:48px;box-shadow:0 5px 16px rgba(89,162,210,.18);}
+  #billingOverview {gap:16px;}
+  #billingOverview > .billing-card {padding:21px 22px;}
+  .billing-amount {font-size:29px;letter-spacing:-.6px;}
+  .summary {gap:16px;margin-top:18px;}
+  .sum {padding:18px 20px;}
+  .sum strong {font-size:25px;}
+  #recordList {gap:16px;}
+  #recordList .record {padding:18px 20px;}
+  #analysisPage.active {gap:17px 19px;}
+  #analysisPage .analysis-summary-grid {grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;}
+  #analysisPage .analysis-stat {padding:17px;min-width:0;}
+  #analysisPage .analysis-stat strong {font-size:clamp(15px,1.4vw,21px);overflow-wrap:anywhere;}
+  #analysisPage .analysis-card-title strong {font-size:16px;}
+  #analysisPage .analysis-card-title span {font-size:11px;}
+  #analysisPage .analysis-donut-layout {grid-template-columns:148px minmax(0,1fr);}
+  .tabs {gap:9px;padding-bottom:5px;}
+  .nav {
+    position:fixed;
+    top:0;
+    bottom:0;
+    left:0;
+    right:auto;
+    transform:none;
+    display:flex;
+    width:210px;
+    padding:110px 14px 110px;
+    flex-direction:column;
+    justify-content:flex-start;
+    gap:9px;
+    border:0;
+    border-right:1px solid #dce8f1;
+    background:#ffffffed;
+    box-shadow:4px 0 30px rgba(36,88,127,.035);
+    backdrop-filter:blur(18px);
+  }
+  .nav:before {
+    content:"WEN'S LEDGER";
+    position:absolute;
+    top:36px;
+    left:23px;
+    letter-spacing:2px;
+    font-size:12px;
+    font-weight:900;
+    color:#659dc4;
+  }
+  .nav button {
+    display:flex;
+    align-items:center;
+    gap:15px;
+    width:100%;
+    min-height:52px;
+    padding:11px 14px;
+    border-radius:13px;
+    font-size:14px;
+    color:#68849a;
+    text-align:left;
+    transition:background .15s,color .15s;
+  }
+  .nav button .ico {display:inline-block;margin:0;width:25px;font-size:21px;}
+  .nav button.active {background:#e8f5fe;color:#287eb6;}
+  .nav button:hover {background:#f0f8fd;}
+  #wensSpaceHomeLink {
+    top:auto!important;
+    right:auto!important;
+    left:18px!important;
+    bottom:25px!important;
+    width:175px;
+    justify-content:center;
+    background:#f2edfa!important;
+    color:#7052a0!important;
+    box-shadow:none!important;
+    border:1px solid #e1d8f0!important;
+  }
+  .topBtn {right:28px;bottom:26px;}
+  .modal {align-items:center;}
+  .modal .sheet {border-radius:22px;max-height:min(88dvh,830px);box-shadow:0 22px 80px #1e385044;}
+}
+@media (min-width:700px) and (max-width:1099px) {
+  .app > header {padding-top:24px;}
+  .page {padding-inline:24px;}
+  .box,.analysis-card,.compare-card {border-radius:18px;}
+}
