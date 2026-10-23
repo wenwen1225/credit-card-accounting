@@ -382,8 +382,8 @@ async function renderReminders(){
       const mainAmount=confirmed?`銀行已核對應繳 NT$${statement.toLocaleString('zh-TW')}`:`Sheet 交易估算 NT$${detailAmount.toLocaleString('zh-TW')}（尚未核對銀行帳單）`;
       const difference=confirmed && detailAmount!==null && unpaid.length && Math.round((detailAmount-statement)*100)!==0;
       const diffLine=difference?`<div class="billing-note">Sheet 仍標「刷」的交易加總 NT$${detailAmount.toLocaleString('zh-TW')}，與銀行帳單差 NT$${Math.abs(detailAmount-statement).toLocaleString('zh-TW')}。可能是延後請款；請依銀行帳單確認，本功能不會修改交易狀態。</div>`:'';
-      const canConfirm=confirmed && cloudReady && ccStatementBackendVersion==='2.7.4';
-      const buttonLabel=!cloudReady?'銀行帳單雲端資料尚未載入':!confirmed?'請先登記銀行正式帳單金額':!canConfirm?'需先更新 GAS v2.7.4':'確認銀行帳單已繳';
+      const canConfirm=confirmed && cloudReady && ['2.7.4','2.7.5'].includes(ccStatementBackendVersion);
+      const buttonLabel=!cloudReady?'銀行帳單雲端資料尚未載入':!confirmed?'請先登記銀行正式帳單金額':!canConfirm?'需先更新 GAS v2.7.5':'確認銀行帳單已繳';
       cards.push(`<div class="remind ${!bankPaid && d>=due?'due':''}"><div class="remTop"><div><div class="remTitle">${esc(bank)}${bankPaid?'已繳帳單・待同步交易進度':'信用卡繳費提醒'}</div><div class="remMeta">結帳日：${cycle.e.getMonth()+1}/${cycle.e.getDate()}｜繳費期限：${m}/${due}｜${esc(mainAmount)}</div></div><div class="tag">${label}</div></div>${bankPaid?'<div class="billing-note">銀行繳費已確認，無需再次付款；按下方按鈕只會核對並同步本期 Sheet 的「刷 → 繳」，若有延後請款會先確認搬移。</div>':diffLine}<button class="donePay" onclick="markPaid('${bank}',${y},${m})" ${canConfirm?'':'disabled'}>${canConfirm?(bankPaid?'完成本期交易同步':'完成本期繳費'):buttonLabel}</button></div>`);
     }
     reminders.innerHTML=cards.join('');
