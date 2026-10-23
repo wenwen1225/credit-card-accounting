@@ -243,3 +243,32 @@ textarea{min-height:78px;resize:vertical}
 .cc-queue-error{padding:9px 10px;background:#fff0f0;color:#a34242;border:1px solid #edb8b8;border-radius:9px;font-size:12px;overflow-wrap:anywhere;line-height:1.6}
 
 .cc-sync-receipts{margin:12px 0;border-top:1px solid #d7e9f2;padding-top:12px}.cc-sync-receipts summary{cursor:pointer;font-weight:800;color:#35769e}.cc-receipt{padding:9px 0;border-bottom:1px solid #e1edf4;line-height:1.8}.cc-receipt a{color:#2679ad;text-decoration:underline}
+
+
+/* Responsive desktop/tablet enhancement — 2026-10-23.
+   Mobile styles and all application behavior remain unchanged. */
+@media (min-width: 700px) {
+  .app { max-width: 1100px; padding-bottom: 110px; }
+  header { padding: 22px 26px 14px; }
+  .page { padding: 16px 26px 28px; }
+  #addPage.active > .box { max-width: 720px; margin-left: auto; margin-right: auto; }
+  #analysisPage.active {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
+    gap: 12px 16px;
+  }
+  #analysisPage > :not(.analysis-card):not(.compare-card) { grid-column: 1 / -1; }
+  #analysisPage .analysis-card, #analysisPage .compare-card { min-width: 0; margin-bottom: 0; }
+  #analysisPage .analysis-summary-grid { min-width: 0; }
+  .nav { width: min(100%, 1100px); }
+  .modal .sheet { max-width: 620px; }
+}
+@media (min-width: 700px) and (max-width: 850px) {
+  #analysisPage.active { grid-template-columns: minmax(0, 1fr); }
+  #analysisPage > * { grid-column: 1 / -1; }
+}
+@media (max-width: 699px) {
+  .app, .page, .box { min-width: 0; }
+  .row > *, .date-select-row > * { min-width: 0; }
+}
