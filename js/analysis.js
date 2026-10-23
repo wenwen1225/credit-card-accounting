@@ -207,6 +207,38 @@ function renderMonthlyTransactionCounts(year, selectedKey){
 let ccCycleSpendingByYear={};
 let ccCycleSpendingLoading=new Set();
 let ccCycleSpendingErrors={};
+const CC_CYCLE_SPENDING_CACHE_KEY='cc_cycle_spending_cache_v2_';
+const CC_CYCLE_CHECK_MS=60000;
+let ccCycleSpendingLastCheck={};
+function ccReadCycleCache(year){
+  try{
+    const data=JSON.parse(localStorage.getItem(CC_CYCLE_SPENDING_CACHE_KEY+year)||'null');
+    if(data?.year===year && data.totals && typeof data.totals==='object')return data;
+  }catch(_){}
+  return null;
+}
+function ccStoreCycleCache(year,totals,dataVersion){
+  try{localStorage.setItem(CC_CYCLE_SPENDING_CACHE_KEY+year,JSON.stringify({year,totals,dataVersion:dataVersion||'',savedAt:new Date().toISOString()}));}catch(_){}
+}
+function ccHydrateCycleCache(year){
+  if(ccCycleSpendingByYear[year])return;
+  const cached=ccReadCycleCache(year);
+  if(cached)ccCycleSpendingByYear[year]=cached.totals;
+}
+async function ccCheckCycleSpendingVersion(year){
+  if(!year || ccCycleSpendingLoading.has(year) || !navigator.onLine)return;
+  if(Date.now()-(ccCycleSpendingLastCheck[year]||0)<CC_CYCLE_CHECK_MS)return;
+  ccCycleSpendingLastCheck[year]=Date.now();
+  const cached=ccReadCycleCache(year);
+  if(!cached){void ccLoadCycleSpending(year);return;}
+  try{
+    // 只抓輕量版本號，沒變化不下載整年度交易。
+    const version=await fetchDataVersion(Number(year));
+    if(!cached.dataVersion || cached.dataVersion!==version){
+      await ccLoadCycleSpending(year,true);
+    }
+  }catch(err){console.warn('帳期消費版本檢查失敗，繼續顯示既有快取',err);}
+}
 function ccCycleStartKey(record){
   const source=String(record?.source?.sheetName||'');
   const match=source.match(/^(\d{2})\/(\d{2})\/\d{2}$/);
@@ -232,13 +264,19 @@ function ccCycleSpendingTotals(rows,year){
   }
   return totals;
 }
-async function ccLoadCycleSpending(year){
-  if(!year||ccCycleSpendingLoading.has(year)||ccCycleSpendingByYear[year])return;
+async function ccLoadCycleSpending(year,force=false){
+  if(!year || ccCycleSpendingLoading.has(year) || (!force && ccCycleSpendingByYear[year]))return;
   ccCycleSpendingLoading.add(year);
   ccCycleSpendingErrors[year]='';
   try{
     const cloud=await fetchCloudRecords(Number(year),{cycleRead:true});
-    ccCycleSpendingByYear[year]=ccCycleSpendingTotals(cloud.records,year);
+    const totals=ccCycleSpendingTotals(cloud.records,year);
+    ccCycleSpendingByYear[year]=totals;
+    // 優先使用同次交易讀取回傳的資料版本；若沒有則查一次輕量版本。
+    let version=cloud.dataVersion||'';
+    if(!version){try{version=await fetchDataVersion(Number(year));}catch(_){}}
+    ccStoreCycleCache(year,totals,version);
+    ccCycleSpendingLastCheck[year]=Date.now();
   }catch(err){
     ccCycleSpendingErrors[year]=err.message||'無法讀取交易資料';
   }finally{
@@ -250,6 +288,7 @@ function renderBankPaymentHistory(year){
   const root=document.getElementById('bankPaymentHistory');
   if(!root)return;
   if(!year){root.innerHTML='<div class="analysis-empty-small">請選擇年份</div>';return;}
+  ccHydrateCycleCache(year);
   if(!ccCycleSpendingByYear[year]){
     root.innerHTML='<div class="analysis-empty-small">'+(ccCycleSpendingErrors[year]?'Sheet 讀取失敗：'+esc(ccCycleSpendingErrors[year])+'。請重新進入分析頁再試。':'正在依 Google Sheets 帳期分頁計算四家銀行消費…')+'</div>';
     if(!ccCycleSpendingLoading.has(year) && !ccCycleSpendingErrors[year])void ccLoadCycleSpending(year);
@@ -288,6 +327,7 @@ function renderAnalysis(){
         analysisYear = btn.dataset.analysisYear;
         analysisMonth = '';
         renderAnalysis();
+        void ccCheckCycleSpendingVersion(analysisYear);
       });
     });
   }
@@ -367,22 +407,7 @@ function renderAnalysis(){
   if(typeCenter) typeCenter.innerHTML = `<strong>${list.length}</strong><span>筆交易</span>`;
   renderLegend(document.getElementById('typeLegend'), typeParts, typeTotal);
 
-  const cardMap = {};
-  list.forEach(r => {
-    if(r.bank!=='中信' || !r.card)return;
-    const label = r.card;
-    cardMap[label] = (cardMap[label] || 0) + Math.abs(signedTwd(r));
-  });
-  const cards = Object.entries(cardMap).sort((a,b) => b[1] - a[1]).slice(0, 6);
-  const max = cards.length ? Math.max(...cards.map(x => x[1])) : 0;
-  const cardRank = document.getElementById('cardRank');
-  if(cardRank){
-    cardRank.innerHTML = cards.length ? cards.map(([label, value], i) => `
-      <div class="rank-row">
-        <div class="rank-head"><span>${i+1}. ${esc(label)}</span><strong>${analysisMoney(value)}</strong></div>
-        <div class="rank-track"><div class="rank-fill" style="width:${max ? Math.max(5, (value/max)*100) : 0}%"></div></div>
-      </div>`).join('') : '<div class="analysis-empty-small">目前沒有卡別資料</div>';
-  }
+
 }
 
 const analysisOriginalRenderRecords = renderRecords;
@@ -392,11 +417,8 @@ renderRecords = function(){
 };
 
 document.querySelector('[data-page="analysisPage"]')?.addEventListener('click', ()=>{
-  // 重新進入分析時重新讀取帳期明細，避免跨裝置變更仍顯示舊快照。
-  if(analysisYear){
-    delete ccCycleSpendingByYear[analysisYear];
-    ccCycleSpendingErrors[analysisYear]='';
-  }
+  // 再次進入分析：沿用已成功讀取的帳期快取，背景只比對 Sheet 版本。
   renderAnalysis();
+  if(analysisYear)void ccCheckCycleSpendingVersion(analysisYear);
 });
 renderAnalysis();
