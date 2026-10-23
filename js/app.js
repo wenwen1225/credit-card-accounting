@@ -361,32 +361,29 @@ async function renderReminders(){
     const all=ccUniqueSourceRecords(results.flatMap(x=>x.records));
     const cards=[];
     for(const {bank,cfg,cycle} of cycles){
-      // 沒有對應分頁或沒有未繳交易，絕不顯示提醒。
+      // 銀行帳單應繳額與 Sheet 交易狀態是兩種資料；延後請款可造成正常差額。
+      const month=y+'-'+pad(m);
+      const cloudReady=typeof ccStatementCloudReady!=='undefined' && ccStatementCloudReady;
+      const statement=cloudReady && typeof ccStatementArchive!=='undefined'?ccStatementArchive?.[month]?.[bank]:undefined;
+      const confirmed=typeof statement==='number' && Number.isFinite(statement);
+      const paidRecord=cloudReady && typeof ccStatementPayments!=='undefined'?ccStatementPayments?.[month]?.[bank]:undefined;
+      if(paidRecord?.paid===true && confirmed && Number(paidRecord.amount)===statement)continue;
       const selected=all.filter(r=>r.bank===bank && r.source?.sheetName===cycle.tab);
       const unpaid=selected.filter(r=>(r.status||'刷')==='刷');
-      if(!unpaid.length || unpaid.some(r=>r.twd===null || r.twd==='' || !Number.isFinite(Number(r.twd))))continue;
-      const detailAmount=unpaid.reduce((sum,r)=>sum+(r.transactionType==='refund'?-Math.abs(Number(r.twd)):Number(r.twd)),0);
-      if(!(detailAmount>0))continue;
-      const statementMonth=y+'-'+pad(m);
-      const cloudReady=typeof ccStatementCloudReady!=='undefined' && ccStatementCloudReady;
-      const verified=cloudReady && typeof ccStatementArchive!=='undefined' ? ccStatementArchive?.[statementMonth]?.[bank] : undefined;
-      const confirmed=typeof verified==='number' && Number.isFinite(verified);
-      const paidRows=selected.some(r=>(r.status||'刷')==='繳');
-      const statementDiff=confirmed && !paidRows && Math.round((detailAmount-verified)*100)!==0;
+      const validUnpaid=unpaid.every(r=>r.twd!==null && r.twd!=='' && Number.isFinite(Number(r.twd)));
+      const detailAmount=validUnpaid?unpaid.reduce((sum,r)=>sum+(r.transactionType==='refund'?-Math.abs(Number(r.twd)):Number(r.twd)),0):null;
+      if(!confirmed && (!validUnpaid || !unpaid.length || !(detailAmount>0)))continue;
       const due=cfg.paymentDueDay;
       const label=d===due-1?'明天要繳費':d===due?'今天到期':`已逾期 ${d-due} 天`;
-      const amountLine=confirmed
-        ? `銀行核對帳單 NT$${verified.toLocaleString('zh-TW')}${paidRows?'（部分交易已標繳，剩餘額待核對）':''}`
-        : `Sheet 未繳明細估算 NT$${detailAmount.toLocaleString('zh-TW')}（尚無已核對銀行帳單）`;
-      const mismatchLine=statementDiff
-        ? `<div class="billing-warning">Sheet 未繳明細合計 NT$${detailAmount.toLocaleString('zh-TW')}，與銀行帳單差 NT$${Math.abs(detailAmount-verified).toLocaleString('zh-TW')}；請核對，暫停批次完成繳費。</div>`
-        : '';
-      const buttonDisabled=statementDiff || paidRows || !cloudReady;
-      const buttonTitle=statementDiff?'金額有差異，暫停完成繳費':paidRows?'部分交易已標繳，請核對明細':!cloudReady?'正在核對銀行帳單雲端資料':'完成繳費';
-      cards.push(`<div class="remind ${d>=due?'due':''}"><div class="remTop"><div><div class="remTitle">${esc(bank)}信用卡繳費提醒</div><div class="remMeta">繳費期限：${m}/${due}｜${esc(amountLine)}</div></div><div class="tag">${label}</div></div>${mismatchLine}<button class="donePay" onclick="markPaid('${bank}',${y},${m})" ${buttonDisabled?'disabled':''}>${buttonTitle}</button></div>`);
+      const mainAmount=confirmed?`銀行已核對應繳 NT$${statement.toLocaleString('zh-TW')}`:`Sheet 交易估算 NT$${detailAmount.toLocaleString('zh-TW')}（尚未核對銀行帳單）`;
+      const difference=confirmed && detailAmount!==null && unpaid.length && Math.round((detailAmount-statement)*100)!==0;
+      const diffLine=difference?`<div class="billing-note">Sheet 仍標「刷」的交易加總 NT$${detailAmount.toLocaleString('zh-TW')}，與銀行帳單差 NT$${Math.abs(detailAmount-statement).toLocaleString('zh-TW')}。可能是延後請款；請依銀行帳單確認，本功能不會修改交易狀態。</div>`:'';
+      const canConfirm=confirmed && cloudReady && ccStatementBackendVersion==='2.7.4';
+      const buttonLabel=!cloudReady?'銀行帳單雲端資料尚未載入':!confirmed?'請先登記銀行正式帳單金額':!canConfirm?'需先更新 GAS v2.7.4':'確認銀行帳單已繳';
+      cards.push(`<div class="remind ${d>=due?'due':''}"><div class="remTop"><div><div class="remTitle">${esc(bank)}信用卡繳費提醒</div><div class="remMeta">繳費期限：${m}/${due}｜${esc(mainAmount)}</div></div><div class="tag">${label}</div></div>${diffLine}<button class="donePay" onclick="markPaid('${bank}',${y},${m})" ${canConfirm?'':'disabled'}>${canConfirm?'確認銀行帳單已繳':buttonLabel}</button></div>`);
     }
     reminders.innerHTML=cards.join('');
-    nextInfo.textContent=cards.length?'已比對銀行已核對帳單及最新 Google Sheet 未繳交易；若金額不同，請先核對差額。':'目前沒有經 Google Sheet 確認的應繳款項。';
+    nextInfo.textContent=cards.length?'已依銀行核對帳單顯示應繳金額；Sheet 交易如有延後請款會另列差額，兩者不混算。':'目前沒有經 Google Sheet 確認的應繳款項。';
   }catch(err){
     if(request!==ccReminderRequest)return;
     reminders.innerHTML='';
