@@ -331,22 +331,22 @@ function renderBillingOverview(){
       <div class="billing-card ${bankClass(bank)}">
         <div class="billing-head">
           <strong>${esc(bank)}</strong>
-          <span>結帳 ${closedCycle.e.getMonth()+1}/${closedCycle.e.getDate()}｜${ccDueDateLabel(closedCycle,cfg.paymentDueDay)}</span>
+          <span>結帳 ${bankPaid ? openCycle.e.getMonth()+1 : closedCycle.e.getMonth()+1}/${bankPaid ? openCycle.e.getDate() : closedCycle.e.getDate()}｜${ccDueDateLabel(bankPaid ? openCycle : closedCycle,cfg.paymentDueDay)}</span>
         </div>
 
-        <div class="billing-cycle-label">${bankPaid ? "上期銀行帳單（已確認繳費）" : verified ? "上期帳單（已確認）" : "上期帳單（尚未核對）"}</div>
-        <div class="billing-amount">${verified ? moneyText(knownStatement) : (payable.length && !payableMissing ? moneyText(estimatedPayable) : "待確認")}</div>
-        ${bankPaid ? `<div class="billing-note">銀行帳單已確認繳納（${esc(paymentRecord.confirmedAt||"日期未提供")}）。</div>` : ""}
+        <div class="billing-cycle-label">${bankPaid ? `本期累積消費（${rangeText(openCycle)}）` : verified ? "上期帳單（已確認）" : "上期帳單（尚未核對）"}</div>
+        <div class="billing-amount">${bankPaid ? moneyText(sumTwd(nextAccumulated)) : verified ? moneyText(knownStatement) : (payable.length && !payableMissing ? moneyText(estimatedPayable) : "待確認")}</div>
+        ${bankPaid ? `<div class="billing-note">上期銀行帳單 ${moneyText(knownStatement)} 已繳（${esc(paymentRecord.confirmedAt||"日期未提供")}）。</div>` : ""}
         ${bankPaid ? `<div class="billing-note">${closedRaw.some(r=>(r.status||"刷")==="刷") ? "銀行已繳費；若本期交易尚未改為「繳」，請使用頁面上方的帳務提醒完成同步。" : "銀行已繳費；本期交易進度已同步。"}</div>` : ""}
-        ${!verified && payable.length && !payableMissing ? '<div class="billing-warning">以上為 Google Sheet 上期交易明細加總（估算），尚非銀行正式帳單；請核對後再登記。</div>' : ''}
+        ${!bankPaid && !verified && payable.length && !payableMissing ? '<div class="billing-warning">以上為 Google Sheet 上期交易明細加總（估算），尚非銀行正式帳單；請核對後再登記。</div>' : ''}
         <button type="button" data-cc-statement="${esc(bank)}" data-month="${esc(snapshotKey)}">登記／修正銀行帳單金額</button>
         <div class="billing-note">${ccStatementCloudReady ? "核對金額已由 GAS 雲端同步；不修改交易 Google Sheet。" : esc(ccStatementCloudError)}</div>
         ${payableMissing ? `<div class="billing-warning">另有 ${payableMissing} 筆尚未補台幣金額</div>` : ''}
 
-        <div class="billing-next-box">
+        ${!bankPaid ? `<div class="billing-next-box">
           <div><span>本期累積消費（${rangeText(openCycle)}）｜結帳 ${openCycle.e.getMonth()+1}/${openCycle.e.getDate()}｜${ccDueDateLabel(openCycle,cfg.paymentDueDay)}</span></div>
           <strong>${moneyText(sumTwd(nextAccumulated))}</strong>
-        </div>
+        </div>` : ""}
         ${cycleMismatchNotice(bank,openCycle)}
         ${pendingCycleHtml(bank,openCycle)}
         ${nextMissing ? `<div class="billing-warning soft">${accumulatingMonthLabel}另有 ${nextMissing} 筆尚未補台幣金額</div>` : ''}
