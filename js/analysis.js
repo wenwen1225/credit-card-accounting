@@ -203,7 +203,7 @@ function renderMonthlyTransactionCounts(year, selectedKey){
     }).join('')+'</div></div><div class="monthly-count-legend"><span>● 消費筆數</span><span>● 退刷筆數</span></div>';
 }
 
-// 銀行已繳費歷史依「繳款月份」列示，不拿交易日期或刷／繳明細加總冒充銀行實繳。
+// 銀行已繳費歷史依「消費帳期月份」列示，不拿交易日期或刷／繳明細加總冒充銀行實繳。
 // 2026/10/23 自各銀行原始 Sheet 的「繳費」列核對的唯讀快照。
 // v2.7.6 可直接讀取 Sheet 最新歷史紀錄；未升級前先用這份已驗證數值。
 // 沒有「繳費」金額者絕不以「帳單」或交易狀態擅自推論。
@@ -282,12 +282,12 @@ function renderBankPaymentHistory(year){
     return '<tr'+(key===selectedAnalysisMonthKey()?' class="selected"':'')+'><th scope="row">'+(i+1)+'月</th>'+cells+'<td class="payment-total">'+analysisMoney(total)+'</td></tr>';
   }).join('');
   const grand=banks.reduce((n,bank)=>n+totals[bank],0);
-  root.innerHTML='<div class="payment-history-scroll"><table class="payment-history-table"><thead><tr><th scope="col">繳款月</th>'+
+  root.innerHTML='<div class="payment-history-scroll"><table class="payment-history-table"><thead><tr><th scope="col">帳期月</th>'+
     banks.map(bank=>'<th scope="col">'+bank+'</th>').join('')+'<th scope="col">合計</th></tr></thead><tbody>'+
     rows+'</tbody><tfoot><tr><th scope="row">全年合計</th>'+
     banks.map(bank=>'<td>'+analysisMoney(totals[bank])+'</td>').join('')+
     '<td class="payment-total">'+analysisMoney(grand)+'</td></tr></tfoot></table></div>'+
-    '<div class="analysis-payment-note">依銀行實際繳款月份。已確認繳費的雲端紀錄優先；歷史資料取自 Sheet 的「繳費」列。'+
+    '<div class="analysis-payment-note">依消費帳期起始月份：例如 9 月消費、10 月繳款，會歸在 9 月帳期。已繳雲端紀錄優先；歷史資料依對應 Sheet 的「繳費」列。'+
     (!ccHistoricPaymentsLoadedYears.has(year) && year==='2026'?'歷史欄位目前採 2026/10/23 已核對的 Sheet 快照；更新修正版 GAS v2.7.6 後可自動重讀。':'')+
     ' NT$0 代表未找到已繳記錄，不代表銀行沒有出帳。</div>';
 }
