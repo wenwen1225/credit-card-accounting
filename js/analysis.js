@@ -252,7 +252,7 @@ function renderBankPaymentHistory(year){
   if(!year){root.innerHTML='<div class="analysis-empty-small">請選擇年份</div>';return;}
   if(!ccCycleSpendingByYear[year]){
     root.innerHTML='<div class="analysis-empty-small">'+(ccCycleSpendingErrors[year]?'Sheet 讀取失敗：'+esc(ccCycleSpendingErrors[year])+'。請重新進入分析頁再試。':'正在依 Google Sheets 帳期分頁計算四家銀行消費…')+'</div>';
-    if(!ccCycleSpendingLoading.has(year))void ccLoadCycleSpending(year);
+    if(!ccCycleSpendingLoading.has(year) && !ccCycleSpendingErrors[year])void ccLoadCycleSpending(year);
     return;
   }
   const banks=['中信','國泰','台新','富邦'],totals=Object.fromEntries(banks.map(b=>[b,0]));
@@ -391,5 +391,12 @@ renderRecords = function(){
   renderAnalysis();
 };
 
-document.querySelector('[data-page="analysisPage"]')?.addEventListener('click', renderAnalysis);
+document.querySelector('[data-page="analysisPage"]')?.addEventListener('click', ()=>{
+  // 重新進入分析時重新讀取帳期明細，避免跨裝置變更仍顯示舊快照。
+  if(analysisYear){
+    delete ccCycleSpendingByYear[analysisYear];
+    ccCycleSpendingErrors[analysisYear]='';
+  }
+  renderAnalysis();
+});
 renderAnalysis();
