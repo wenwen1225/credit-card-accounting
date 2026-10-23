@@ -38,6 +38,15 @@ async function ccMarkCyclePaid(bank,y,m){
     const selected=all.filter(r=>r.bank===bank && r.source?.sheetName===cycle.tab);
     const inconsistent=selected.filter(r=>!inDateRange(r.date,cycle.s,cycle.e) && !/(?:^|[｜\n])\s*上期剩餘\s*(?:$|[｜\n])/.test(r.note||''));
     if(inconsistent.length)throw Error(`帳期分頁中有 ${inconsistent.length} 筆日期不符，為避免誤改請先核對 Sheet`);
+    // 銀行已核對金額和 Sheet 明細不一致時不能批次標繳，避免將錯誤交易一併確認。
+    if(typeof ccStatementCloudReady==='undefined' || !ccStatementCloudReady)throw Error('尚未取得最新銀行核對金額，請連線並重新讀取後再處理繳費');
+    const statementKey=y+'-'+pad(m);
+    const bankAmount=typeof ccStatementArchive!=='undefined' ? ccStatementArchive?.[statementKey]?.[bank] : undefined;
+    if(typeof bankAmount!=='number' || !Number.isFinite(bankAmount))throw Error('本期銀行實際帳單金額尚未核對，請先登記後再完成繳費');
+    const invalid=selected.filter(r=>r.twd===null || r.twd==='' || !Number.isFinite(Number(r.twd)));
+    if(invalid.length)throw Error('本帳期有 '+invalid.length+' 筆金額未確認，請先核對');
+    const allSum=selected.reduce((sum,r)=>sum+(r.transactionType==='refund'?-Math.abs(Number(r.twd)):Number(r.twd)),0);
+    if(Math.round((allSum-bankAmount)*100)!==0)throw Error('銀行核對帳單 NT$'+bankAmount.toLocaleString('zh-TW')+'，但 Sheet 交易合計 NT$'+allSum.toLocaleString('zh-TW')+'，差額 NT$'+Math.abs(allSum-bankAmount).toLocaleString('zh-TW')+'。為避免誤改交易，已暫停完成繳費');
     const pending=selected.filter(r=>(r.status||'刷')==='刷');
     const unsafe=pending.filter(r=>!r.source?.rowHash);
     if(unsafe.length)throw Error(`有 ${unsafe.length} 筆缺少來源驗證資訊，無法安全更新`);
