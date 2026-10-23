@@ -466,13 +466,13 @@ textarea{min-height:78px;resize:vertical}
     font-size:12px;
     line-height:1.55;
   }
-  #analysisPage > .analysis-card:first-of-type {
+  #analysisPage > .analysis-card:has(#bankPaymentHistory) {
     grid-column:1 / -1;
   }
   #analysisPage .analysis-card { overflow-wrap:anywhere; }
 }
 @media (min-width:1100px) {
-  #analysisPage > .analysis-card:first-of-type {
+  #analysisPage > .analysis-card:has(#bankPaymentHistory) {
     grid-column:1 / -1;
   }
   #analysisPage #bankPaymentHistory {width:100%;min-width:0;}
