@@ -477,3 +477,52 @@ textarea{min-height:78px;resize:vertical}
   }
   #analysisPage #bankPaymentHistory {width:100%;min-width:0;}
 }
+
+/* Currency entry fields: visual symbols stay outside the numeric value sent to GAS. */
+.cc-currency-entry{
+  display:flex;
+  align-items:stretch;
+  width:100%;
+  min-width:0;
+  border:1px solid var(--line);
+  border-radius:14px;
+  background:#fcfbff;
+  overflow:hidden;
+  transition:border-color .16s,box-shadow .16s;
+}
+.cc-currency-entry:focus-within{
+  border-color:#74b9e6;
+  box-shadow:0 0 0 3px rgba(116,185,230,.15);
+}
+.cc-currency-entry .cc-currency-prefix{
+  flex:0 0 auto;
+  min-width:60px;
+  padding:13px 9px 13px 14px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-weight:900;
+  font-size:15px;
+  color:#4f8eb8;
+  background:#f0f8fd;
+  border-right:1px solid var(--line);
+  white-space:nowrap;
+}
+.cc-currency-entry input,
+#addPage .cc-currency-entry input,
+#editModal .cc-currency-entry input{
+  min-width:0;
+  width:100%;
+  flex:1;
+  border:0!important;
+  border-radius:0;
+  outline:0;
+  box-shadow:none!important;
+  background:transparent;
+  padding:13px 14px;
+  font-variant-numeric:tabular-nums;
+}
+@media(max-width:380px){
+  .cc-currency-entry .cc-currency-prefix{min-width:48px;padding-inline:8px;font-size:13px;}
+  .cc-currency-entry input{padding-inline:9px;}
+}
