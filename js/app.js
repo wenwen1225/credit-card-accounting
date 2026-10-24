@@ -56,6 +56,42 @@ function pad(n){ return String(n).padStart(2, '0'); }
 function ccCurrencySymbol(currency){return {TWD:'NT$',KRW:'₩',JPY:'¥',USD:'US$',EUR:'€',CNY:'¥'}[String(currency||'').toUpperCase()]||String(currency||'');}
 function ccForeignDisplay(currency,amount){return ccCurrencySymbol(currency)+Number(amount).toLocaleString('en-US',{maximumFractionDigits:2});}
 function fmtMoney(n){ return n === null || n === '' || n === undefined ? '待補' : 'NT$' + Number(n).toLocaleString(); }
+
+function ccMoneyRaw(value){return String(value??'').replace(/,/g,'').trim();}
+function ccMoneyNumber(value){return Number(ccMoneyRaw(value));}
+function ccMoneyValid(value){const raw=ccMoneyRaw(value);return /^(?:[0-9]+)(?:[.][0-9]*)?$/.test(raw)&&Number.isFinite(Number(raw))&&Number(raw)>0;}
+function ccMoneyPretty(value){
+ const raw=ccMoneyRaw(value);
+ if(!raw)return '';
+ const parts=raw.match(/^([0-9]+)([.][0-9]*)?$/);
+ if(!parts)return String(value);
+ return Number(parts[1]).toLocaleString('en-US',{maximumFractionDigits:0})+(parts[2]||'');
+}
+function ccBindMoneyInput(el){
+ if(!el)return;
+ el.addEventListener('input',()=>{
+   const before=el.value;
+   const caret=el.selectionStart??before.length;
+   const count=before.slice(0,caret).replace(/,/g,'').length;
+   const after=ccMoneyPretty(before);
+   if(before===after)return;
+   el.value=after;
+   let i=0,n=0;
+   while(i<after.length&&n<count){if(after[i]!==',')n++;i++;}
+   try{el.setSelectionRange(i,i);}catch(_){}
+ });
+ el.addEventListener('blur',()=>{el.value=ccMoneyPretty(el.value);});
+}
+function ccSetForeignSymbol(sel,prefixId){
+ const prefix=document.getElementById(prefixId);
+ if(prefix)prefix.textContent=sel.value?ccCurrencySymbol(sel.value):'—';
+}
+[twdInp,foreignInp,editTwd,editForeign].forEach(ccBindMoneyInput);
+currencySel.addEventListener('change',()=>ccSetForeignSymbol(currencySel,'foreignSymbol'));
+editCurrency.addEventListener('change',()=>ccSetForeignSymbol(editCurrency,'editForeignSymbol'));
+ccSetForeignSymbol(currencySel,'foreignSymbol');
+ccSetForeignSymbol(editCurrency,'editForeignSymbol');
+
 function bankClass(b){ return b === '中信' ? 'ctbc' : b === '國泰' ? 'cathay' : b === '台新' ? 'taishin' : 'fubon'; }
 
 function normalizeClientDate(value){
@@ -183,8 +219,8 @@ foreignLine.addEventListener('click', () => {
 saveBtn.addEventListener('click', async () => {
   const isForeign = foreignToggle.classList.contains('on');
   const item = itemInp.value.trim();
-  const twdText = twdInp.value.trim();
-  const foreignText = isForeign ? foreignInp.value.trim() : '';
+  const twdText = ccMoneyRaw(twdInp.value);
+  const foreignText = isForeign ? ccMoneyRaw(foreignInp.value) : '';
   if(!item){ alert('請先填寫項目'); itemInp.focus(); return; }
   if(!dateInp.value){ alert('請選擇交易日期'); return; }
   if(!twdText || !Number.isFinite(Number(twdText)) || Number(twdText)<=0){alert('台幣金額為必填，請輸入大於 0 的金額');twdInp.focus();return;}
@@ -296,18 +332,18 @@ function renderPending(){
 
 function openEdit(id){
   const r=records.find(x=>x.id===id); if(!r) return;
-  editId.value=r.id; editBank.value=r.bank; if(r.bank==='中信' && r.card && !Array.from(editCard.options).some(o=>o.value===r.card)){const option=new Option(r.card,r.card);editCard.add(option);} editCard.value=r.bank==='中信'?(r.card||APP_CONFIG.banks['中信'].cards[0]):APP_CONFIG.banks['中信'].cards[0]; ccUpdateEditCardVisibility(); editDate.value=r.date; editStatus.value=r.status||'刷'; editItem.value=r.item; editTwd.value=r.twd??''; editCurrency.value=Number(r.foreign)>0?(r.currency||''):''; editForeign.value=Number(r.foreign)>0?r.foreign:''; editNote.value=r.note||''; editModal.classList.add('show');
+  editId.value=r.id; editBank.value=r.bank; if(r.bank==='中信' && r.card && !Array.from(editCard.options).some(o=>o.value===r.card)){const option=new Option(r.card,r.card);editCard.add(option);} editCard.value=r.bank==='中信'?(r.card||APP_CONFIG.banks['中信'].cards[0]):APP_CONFIG.banks['中信'].cards[0]; ccUpdateEditCardVisibility(); editDate.value=r.date; editStatus.value=r.status||'刷'; editItem.value=r.item; editTwd.value=r.twd==null?'':ccMoneyPretty(r.twd); editCurrency.value=Number(r.foreign)>0?(r.currency||''):''; editForeign.value=Number(r.foreign)>0?ccMoneyPretty(r.foreign):''; ccSetForeignSymbol(editCurrency,'editForeignSymbol'); editNote.value=r.note||''; editModal.classList.add('show');
 }
 closeEdit.addEventListener('click',()=>editModal.classList.remove('show'));
 editModal.addEventListener('click',e=>{ if(e.target===editModal) editModal.classList.remove('show'); });
 
 modalSave.addEventListener('click', async()=>{
   const id=Number(editId.value), r=records.find(x=>x.id===id); if(!r||!r.source) return;
-  if(!editTwd.value.trim() || !Number.isFinite(Number(editTwd.value)) || Number(editTwd.value)<=0){alert('台幣金額為必填，請輸入大於 0 的金額');editTwd.focus();return;}
-  const editForeignText=editForeign.value.trim();
+  if(!ccMoneyValid(editTwd.value)){alert('台幣金額為必填，請輸入大於 0 的金額');editTwd.focus();return;}
+  const editForeignText=ccMoneyRaw(editForeign.value);
   if(Boolean(editCurrency.value)!==Boolean(editForeignText)){alert('幣別與外幣金額必須同時填寫，或同時留空');return;}
   if(editForeignText && (!Number.isFinite(Number(editForeignText)) || Number(editForeignText)<=0)){alert('請輸入大於 0 的外幣金額');editForeign.focus();return;}
-  const updated={...r,bank:editBank.value,card:editBank.value==='中信'?editCard.value:'',date:editDate.value,status:editStatus.value,item:editItem.value.trim(),twd:editTwd.value?Number(editTwd.value):null,currency:editCurrency.value,foreign:editForeign.value?Number(editForeign.value):null,note:editNote.value.trim(),foreignAmount:editForeign.value?Number(editForeign.value):null};
+  const updated={...r,bank:editBank.value,card:editBank.value==='中信'?editCard.value:'',date:editDate.value,status:editStatus.value,item:editItem.value.trim(),twd:ccMoneyValid(editTwd.value)?ccMoneyNumber(editTwd.value):null,currency:editCurrency.value,foreign:editForeignText?Number(editForeignText):null,note:editNote.value.trim(),foreignAmount:editForeignText?Number(editForeignText):null};
   if(!r.source?.rowHash){alert('來源資訊尚未更新，請先從 Sheet 更新資料再修改。');return;}
   try{ modalSave.disabled=true; modalSave.textContent='儲存中…'; const response=await postToApi({action:'updateRecord',record:updated}); if(!response.record?.source?.rowHash)throw Error('GAS 未回傳來源驗證資料'); const fresh=mapApiRecords([response.record])[0]; if(typeof ccMarkLocalMutation==='function')ccMarkLocalMutation(); records=records.map(x=>x.id===id?{...fresh,id}:x); if(typeof ccConfirmedWrites!=='undefined' && typeof ccSourceKey==='function'){const key=ccSourceKey(fresh.source);if(ccConfirmedWrites.has(key))ccConfirmedWrites.set(key,{...fresh,id});} saveRecordsCache(Number(window.ccSelectedDataYear||new Date().getFullYear()),''); editModal.classList.remove('show'); renderCurrentRecords('修改成功，已同步 Google Sheet'); alert('修改成功！'); }
   catch(err){ alert('修改失敗：'+err.message); }
