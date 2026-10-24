@@ -59,7 +59,7 @@ async function ccEditStatement(bank,month){
   const value=prompt(bank+' '+month+' 銀行實際帳單金額（例如 NT$15,641；跨裝置同步，不修改交易 Sheet）',formattedOld);
   if(value===null)return;
   const clean=value.trim().replace(/^(?:NT\x24|NTD|TWD|＄|\x24|NT＄)\s*/i,'').replace(/,/g,'').trim();
-  if(!/^(?:0|[1-9]\\d*)(?:\\.\\d{1,2})?$/.test(clean)||!Number.isFinite(Number(clean))||Number(clean)>1000000000){
+  if(!/^(?:0|[1-9]\d*)(?:\.\d{1,2})?$/.test(clean)||!Number.isFinite(Number(clean))||Number(clean)>1000000000){
     alert('金額不正確，請輸入台幣金額，例如 NT$15,641（最多兩位小數）');return;
   }
   if(!confirm('確認把 '+bank+' '+month+' 銀行帳單核對金額 NT$'+Number(clean).toLocaleString()+' 儲存到雲端？\n不會修改任何刷卡交易。'))return;
