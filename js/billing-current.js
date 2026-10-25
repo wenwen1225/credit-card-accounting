@@ -24,28 +24,44 @@ let ccStatementBackendVersion='';
 const CC_DEVICE_TOKEN_KEY='cc_statement_device_token_v1';
 function ccStatementDeviceToken(){try{return localStorage.getItem(CC_DEVICE_TOKEN_KEY)||'';}catch(_){return '';}}
 function ccStatementDeviceName(){return /iPhone|iPad/i.test(navigator.userAgent||'')?'iPhone／iPad':/Mac/i.test(navigator.userAgent||'')?'Mac 瀏覽器':'私人瀏覽器';}
+let ccStatementRefreshInFlight=null;
 async function ccRefreshStatementArchive(){
-  try{
-    const response=await fetch(APP_CONFIG.apiUrl+'?action=verifiedStatements&_='+Date.now(),{cache:'no-store'});
-    if(!response.ok)throw Error('HTTP '+response.status);
-    const data=await response.json();
-    if(!data.ok||!data.archive||!data.revision)throw Error(data.error||'GAS 尚未部署 v2.7.2 或回傳格式不符');
-    if(!/^2\.7\.[2-9]$/.test(String(data.version||'')))throw Error('GAS 必須先部署 v2.7.2 才能跨裝置同步');
-    ccStatementArchive=data.archive;
-    ccStatementRevision=data.revision;
-    ccStatementPayments=data.payments&&typeof data.payments==='object'?data.payments:{};
-    ccStatementPaymentRevision=String(data.paymentRevision||'');
-    ccStatementBackendVersion=String(data.version||'');
-    ccStatementCloudReady=true;
-    ccStatementCloudError='';
-    try{localStorage.setItem(CC_STATEMENT_KEY,JSON.stringify(data.archive));}catch(err){console.warn('瀏覽器快取未儲存',err);}
-  }catch(err){
-    ccStatementCloudReady=false;
-    ccStatementCloudError='無法同步銀行帳單核對金額：'+err.message+'。目前僅顯示本機舊資料，禁止編輯，避免兩台裝置互相覆蓋。';
-  }
-  if(typeof renderBillingOverview==='function')renderBillingOverview();
-  if(typeof renderAnalysis==='function')renderAnalysis();
-  if(typeof renderReminders==='function')void renderReminders();
+  if(ccStatementRefreshInFlight)return ccStatementRefreshInFlight;
+  ccStatementRefreshInFlight=(async()=>{
+    let lastError=null;
+    for(let attempt=0;attempt<3;attempt++){
+      try{
+        const response=await fetch(APP_CONFIG.apiUrl+'?action=verifiedStatements&_='+Date.now(),{cache:'no-store'});
+        if(!response.ok)throw Error('HTTP '+response.status);
+        const data=await response.json();
+        if(!data.ok||!data.archive||!data.revision||!data.paymentRevision)
+          throw Error(data.error||'帳單核對 API 回傳格式不完整');
+        if(String(data.version||'')!=='2.7.7')throw Error('後端版本不相容：'+String(data.version||'未知'));
+        ccStatementArchive=data.archive;
+        ccStatementRevision=String(data.revision);
+        ccStatementPayments=data.payments&&typeof data.payments==='object'?data.payments:{};
+        ccStatementPaymentRevision=String(data.paymentRevision);
+        ccStatementBackendVersion=String(data.version);
+        ccStatementCloudReady=true;
+        ccStatementCloudError='';
+        try{localStorage.setItem(CC_STATEMENT_KEY,JSON.stringify(data.archive));}catch(err){console.warn('瀏覽器快取未儲存',err);}
+        lastError=null;
+        break;
+      }catch(err){
+        lastError=err;
+        console.warn('銀行帳單雲端核對失敗（第 '+(attempt+1)+' 次）',err);
+      }
+    }
+    if(lastError){
+      ccStatementCloudReady=false;
+      ccStatementCloudError='無法同步銀行帳單核對金額：'+lastError.message+'。交易資料可能已更新，但銀行帳單核對資料尚未確認，請重新整理或重新核對。';
+    }
+    if(typeof renderBillingOverview==='function')renderBillingOverview();
+    if(typeof renderAnalysis==='function')renderAnalysis();
+    if(typeof renderReminders==='function')void renderReminders();
+    return ccStatementCloudReady;
+  })();
+  try{return await ccStatementRefreshInFlight;}finally{ccStatementRefreshInFlight=null;}
 }
 async function ccEditStatement(bank,month){
   if(ccStatementWriteBusy)return;
