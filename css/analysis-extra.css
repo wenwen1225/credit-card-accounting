@@ -72,3 +72,9 @@
 .payment-history-table tfoot th:first-child{background:#eaf4fa}
 .payment-history-table .payment-total{font-weight:900;color:#245779}
 .analysis-payment-note{font-size:11px;color:var(--muted);line-height:1.6;margin-top:10px}
+
+/* 年度合計：暖杏金底色，與月份選取的淺藍色清楚區分。 */
+.payment-history-table tfoot th,
+.payment-history-table tfoot td{background:#fff0d7;color:#755021;border-top:2px solid #e8bd78;font-weight:900}
+.payment-history-table tfoot th:first-child{background:#fff0d7}
+.payment-history-table tfoot .payment-total{color:#8b4d12}
