@@ -107,8 +107,8 @@
     const update=()=>{
       const t=Number(twd.value.replaceAll(',','')),f=Number(fx.value.replaceAll(',',''));
       if(!toggle.classList.contains('on')||!(t>0&&f>0)){rate.textContent='請輸入台幣與外幣金額以計算匯率';return;}
-      const fmt=n=>n.toLocaleString('zh-TW',{maximumFractionDigits:6});
-      rate.textContent='1 '+cur.value+' = NT$'+fmt(t/f)+'；NT$1 = '+fmt(f/t)+' '+cur.value+'（依輸入金額計算）';
+      const rateValue=f/t;
+      rate.textContent='匯率 '+rateValue.toLocaleString('zh-TW',{minimumFractionDigits:2,maximumFractionDigits:2});
     };
     [twd,fx].forEach(e=>e.addEventListener('input',update));
     cur.addEventListener('change',update);
