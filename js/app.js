@@ -391,10 +391,24 @@ async function renderReminders(){
     const candidates=Object.entries(APP_CONFIG.banks).filter(([bank,cfg])=>cfg.paymentDueDay && d>=cfg.paymentDueDay-1 && (!cfg.firstPaymentDueDate || dateToInput(now)>=cfg.firstPaymentDueDate));
     if(!candidates.length){nextInfo.textContent='目前沒有即將到期的繳費提醒。';return;}
     const cycles=candidates.map(([bank,cfg])=>({bank,cfg,cycle:ccPayableCycle(bank,y,m)}));
-    const years=[...new Set(cycles.flatMap(x=>[x.cycle.s.getFullYear(),x.cycle.e.getFullYear()]))];
-    const results=await Promise.all(years.map(year=>fetchCloudRecords(year,{cycleRead:true})));
+    // 提醒只需要當期分頁；不要為了少數銀行讀取整年度數百筆資料。
+    // 全年資料查詢若超時，會造成交易已同步但上方提醒顯示無法核對。
+    const results=await Promise.all(cycles.map(async ({bank,cycle})=>{
+      let lastError;
+      for(let attempt=0;attempt<2;attempt++){
+        try{
+          const url=APP_CONFIG.apiUrl+'?action=cycleRecords&bank='+encodeURIComponent(bank)+'&tab='+encodeURIComponent(cycle.tab)+'&_='+Date.now();
+          const response=await fetch(url,{cache:'no-store'});
+          if(!response.ok)throw Error('HTTP '+response.status);
+          const data=await response.json();
+          if(!data.ok||!Array.isArray(data.records))throw Error(data.error||'帳期資料格式不正確');
+          return mapApiRecords(data.records);
+        }catch(err){lastError=err;}
+      }
+      throw Error(bank+' '+cycle.tab+' 帳期查詢失敗：'+lastError.message);
+    }));
     if(request!==ccReminderRequest)return;
-    const all=ccUniqueSourceRecords(results.flatMap(x=>x.records));
+    const all=ccUniqueSourceRecords(results.flat());
     const cards=[];
     for(const {bank,cfg,cycle} of cycles){
       // 銀行帳單應繳額與 Sheet 交易狀態是兩種資料；延後請款可造成正常差額。
@@ -427,7 +441,7 @@ async function renderReminders(){
   }catch(err){
     if(request!==ccReminderRequest)return;
     reminders.innerHTML='';
-    nextInfo.textContent='無法核對最新 Google Sheet，暫停繳費提醒，避免誤報逾期。';
+    nextInfo.textContent='繳費提醒暫時無法核對：'+String(err.message||err)+'。交易紀錄同步不受影響；為避免誤報逾期，暫停提醒。';
     console.warn('繳費提醒核對失敗',err);
   }
 }
