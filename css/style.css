@@ -682,3 +682,47 @@ textarea{min-height:78px;resize:vertical}
   #recordsPage .cc-record-workspace {display:block;}
   #recordsPage .cc-record-filters,#recordsPage .cc-record-results {display:block;}
 }
+
+/* B desktop header: version check is an intentional status toolbar, not a phone card. */
+@media (min-width:1100px){
+  .app > header {
+    display:grid;
+    grid-template-columns:minmax(0,1fr) minmax(320px,480px);
+    align-items:center;
+    column-gap:30px;
+    row-gap:7px;
+    padding:30px 20px 22px;
+  }
+  .app > header > h1 {grid-column:1;grid-row:1;margin:0;}
+  .app > header > .sub {grid-column:1;grid-row:2;margin:0;}
+  .app > header > .version-card {
+    grid-column:2;
+    grid-row:1 / span 2;
+    width:100%;
+    max-width:none;
+    margin:0;
+    padding:14px 15px;
+    gap:15px;
+    border:1px solid #dae9f4;
+    border-radius:17px;
+    background:#ffffffed;
+    box-shadow:0 8px 25px rgba(46,99,135,.055);
+  }
+  .app > header .version-detail {font-size:12px;line-height:1.55;margin-top:7px;overflow-wrap:anywhere;}
+  .app > header .version-state {font-size:12px;}
+  .app > header #checkVersionBtn {
+    flex:0 0 auto;
+    font-size:12px;
+    padding:11px 15px;
+    min-height:41px;
+    border-radius:12px;
+    background:#e9f5fd;
+    color:#367da9;
+    border:1px solid #d3e9f7;
+    cursor:pointer;
+  }
+  .app > header #checkVersionBtn:hover {background:#dcedfa;}
+}
+@media (min-width:700px) and (max-width:1099px){
+  .app > header .version-card {width:100%;max-width:none;}
+}
