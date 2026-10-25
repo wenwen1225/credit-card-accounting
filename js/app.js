@@ -381,6 +381,8 @@ modalDelete.addEventListener('click',()=>{ const id=Number(editId.value); editMo
 // 繳費提醒先以銀行核對金額為準；Sheet 刷／繳只判斷狀態與提供對帳差額。
 let ccReminderRequest=0;
 async function renderReminders(){
+  // focus/visibility 事件可能在其他腳本載入前觸發，不能提早呼叫帳期函式。
+  if(typeof ccPayableCycle!=='function')return;
   const request=++ccReminderRequest;
   const now=new Date(), y=now.getFullYear(), m=now.getMonth()+1, d=now.getDate();
   reminders.innerHTML='';
@@ -449,6 +451,7 @@ async function renderReminders(){
 let ccLastReminderFocusCheck=0;
 function ccRefreshRemindersOnReturn(){
   if(document.visibilityState==='hidden' || !navigator.onLine)return;
+  if(typeof ccPayableCycle!=='function')return;
   if(typeof ccCyclePaymentBusy!=='undefined' && ccCyclePaymentBusy)return;
   if(Date.now()-ccLastReminderFocusCheck<30000)return;
   ccLastReminderFocusCheck=Date.now();
