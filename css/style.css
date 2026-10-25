@@ -529,3 +529,156 @@ textarea{min-height:78px;resize:vertical}
 
 /* 即時計算外幣刷卡有效匯率（僅顯示，不寫入 Sheet）。 */
 .cc-fx-rate-preview{margin:10px 0 3px;padding:12px 14px;border:1px solid #d8e7f5;border-radius:12px;background:#f0f7fd;color:#365f81;font-size:13px;font-weight:700;line-height:1.65;font-variant-numeric:tabular-nums}
+
+/* Desktop B edition: account workspace / records filters / analytic dashboard.
+   Presentation only. No changes to transaction state or synchronization. */
+.cc-record-workspace {min-width:0;}
+.cc-panel-eyebrow {display:none;}
+@media (min-width:1100px){
+  .app {max-width:1360px;}
+  .app > header {margin:0 30px;padding:28px 18px 20px;}
+  .app > header > .version-card{width:min(100%,500px);}
+  .page {padding:26px 43px 54px;}
+  #addPage.active > .box {
+    display:grid;
+    grid-template-columns:minmax(0,1fr) minmax(0,1fr);
+    column-gap:26px;
+    row-gap:4px;
+    width:100%;
+    max-width:1160px;
+    padding:28px 34px 30px;
+    margin:0 auto;
+    align-items:start;
+    border:1px solid #deebf4;
+    box-shadow:0 16px 42px #26567c12;
+  }
+  #addPage > .box > h2 {
+    grid-column:1 / -1;grid-row:1;
+    font-size:23px;margin:0 0 13px;
+    border-bottom:1px solid #e2edf5;padding-bottom:19px;
+  }
+  #addPage > .box > .field:has(#bankSel){grid-column:1;grid-row:2;}
+  #addPage > .box > .field:has(#transactionTypeSel){grid-column:2;grid-row:2;}
+  #addPage > .box > #cardField{grid-column:1;grid-row:3;}
+  #addPage > .box > .field:has(#dateInp){grid-column:2;grid-row:3;}
+  #addPage > .box > .field:has(#statusSel){grid-column:1;grid-row:4;}
+  #addPage > .box > .cycle {
+    grid-column:2;grid-row:4;
+    padding:15px 19px;
+    background:linear-gradient(130deg,#e8f5fd,#f7fbff);
+    min-height:91px;
+    border:1px solid #cee6f5;
+    border-radius:16px;
+  }
+  #addPage .cycle strong {font-size:19px;letter-spacing:-.3px;}
+  #addPage > .box > .field:has(#itemInp){grid-column:1;grid-row:5;}
+  #addPage > .box > .field:has(#twdInp){grid-column:2;grid-row:5;}
+  #addPage > .box > .field:has(#noteInp){grid-column:1;grid-row:6 / span 2;align-self:stretch;}
+  #addPage #noteInp {min-height:142px;resize:vertical;}
+  #addPage > .box > .field:has(#foreignLine){grid-column:2;grid-row:6;}
+  #addPage > .box > #foreignFields {
+    grid-column:2;grid-row:7;
+    min-width:0;
+    background:#f4faff;
+    border:1px solid #e1eef8;
+    border-radius:15px;
+    padding:14px;
+    margin-bottom:12px;
+  }
+  #addPage > .box > #saveBtn {
+    grid-column:1 / -1;grid-row:8;
+    width:100%;max-width:none;min-height:54px;
+    margin-top:12px;font-size:16px;border-radius:15px;
+  }
+  #addPage > .box > #ccQueueSaved {grid-column:1 / -1;grid-row:9;}
+  #addPage > .box > #ccQueuePanel {
+    grid-column:1 / -1;grid-row:10;
+    margin-top:10px;padding:19px 22px;
+    border-radius:17px;
+  }
+  #addPage .box > .field {min-width:0;margin-bottom:13px;}
+  #addPage .field > label {font-size:13px;margin-bottom:9px;}
+  #addPage .toggleLine {min-height:83px;}
+  #addPage .date-select-row {grid-template-columns:1.25fr 1fr 1fr;}
+  /* Accounts overview stays full width, activity becomes filters + ledger. */
+  #recordsPage > #billingOverview {grid-template-columns:repeat(2,minmax(0,1fr));gap:17px;}
+  #recordsPage .summary {grid-template-columns:repeat(2,minmax(0,1fr));}
+  #recordsPage > details.year-manager {display:inline-block;vertical-align:top;}
+  #recordsPage .cc-record-workspace {
+    display:grid;
+    grid-template-columns:260px minmax(0,1fr);
+    gap:22px;
+    align-items:start;
+    margin-top:26px;
+  }
+  #recordsPage .cc-panel-eyebrow {
+    display:block;
+    font-weight:900;letter-spacing:.06em;font-size:12px;
+    color:#6489a5;
+    padding-bottom:13px;margin-bottom:15px;
+    border-bottom:1px solid #e4eef6;
+  }
+  #recordsPage .cc-record-filters {
+    position:sticky;top:16px;
+    border-radius:20px;
+    border:1px solid #dfebf5;
+    padding:20px;
+    background:#fff;
+    box-shadow:0 7px 24px #244f7410;
+    min-width:0;
+  }
+  #recordsPage .cc-record-filters .tabs{
+    display:flex;flex-wrap:wrap;overflow:visible;
+    gap:8px;max-height:220px;overflow-y:auto;
+  }
+  #recordsPage .cc-record-filters .tabs .chip {font-size:12px;}
+  #recordsPage .cc-record-filters .section-label {margin-top:13px;}
+  #recordsPage .cc-record-filters .record-tools-row {flex-direction:column;align-items:stretch;}
+  #recordsPage .cc-record-filters .record-tools-row > * {width:100%;}
+  #recordsPage .cc-record-filters .clear-filter-btn {margin:0;}
+  #recordsPage .cc-record-results {
+    min-width:0;
+    border:1px solid #dfebf5;
+    border-radius:20px;
+    padding:20px;
+    background:#fff;
+    box-shadow:0 7px 24px #244f7410;
+  }
+  #recordsPage #recordList {
+    display:grid;grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:13px;align-items:start;
+  }
+  #recordsPage #recordList > .record {min-width:0;margin:0;}
+  #recordsPage #recordList > :not(.record) {grid-column:1 / -1;}
+  #recordsPage #pendingList {min-width:0;}
+  /* Analysis uses its available screen width: annual table as headline block. */
+  #analysisPage.active{
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:17px 20px;align-items:start;
+  }
+  #analysisPage > .analysis-card:has(#bankPaymentHistory) {
+    grid-column:1 / -1;
+    padding:24px;
+  }
+  #analysisPage .analysis-summary-grid {
+    grid-column:1 / -1;
+    display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;
+  }
+  #analysisPage > .analysis-head {grid-column:1 / -1;}
+  #analysisPage > .analysis-payment-note {grid-column:1 / -1;}
+  #analysisPage .analysis-card,#analysisPage .compare-card {
+    min-width:0;border-radius:20px;padding:23px;
+  }
+  #analysisPage .payment-history-table {min-width:0;width:100%;}
+  #analysisPage .monthly-count-chart {min-width:0;}
+  #analysisPage .analysis-card-title {flex-wrap:wrap;}
+  #analysisPage .analysis-card-title strong {font-size:16px;}
+}
+@media (min-width:1100px) and (max-width:1360px) {
+  #recordsPage .cc-record-workspace {grid-template-columns:235px minmax(0,1fr);gap:15px;}
+  #recordsPage #recordList {grid-template-columns:1fr;}
+}
+@media (max-width:1099px) {
+  #recordsPage .cc-record-workspace {display:block;}
+  #recordsPage .cc-record-filters,#recordsPage .cc-record-results {display:block;}
+}
