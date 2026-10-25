@@ -149,7 +149,13 @@ async function ccFinishCycleBill(bank,month){
     if(typeof renderReminders==='function')await renderReminders();
     if(typeof renderBillingOverview==='function')renderBillingOverview();
     ccCyclePaymentStatus(bank+' '+month+' 帳務已完成同步');
-    alert('已完成本期帳務！\n銀行帳單：NT);
+    alert([
+      '已完成本期帳務！',
+      '銀行帳單：NT$'+amount.toLocaleString('zh-TW'),
+      'Sheet 總筆數：'+verifiedRows.length+' 筆',
+      '全部已繳：'+verifiedRows.length+'/'+verifiedRows.length+' 筆',
+      '本次更新：'+updated+' 筆；延至下期：'+moved+' 筆。'
+    ].join(String.fromCharCode(10)));
   }catch(err){
     // 逐筆寫入可能部分成功；雲端重讀後再執行，已完成的部分不會重複更新。
     try{await loadRecords({force:true});}catch(_){}
