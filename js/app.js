@@ -226,7 +226,6 @@ function ccUpdateFxRatePreview(){
   const foreignPerTwd=foreign/twd;
   const fmt=(n)=>n.toLocaleString('zh-TW',{maximumFractionDigits:n<0.01?8:6});
   ccFxRatePreview.textContent='本筆換算匯率：1 '+currency+' ≈ NT
-  foreignToggle.classList.toggle('on');
   foreignFields.classList.toggle('hidden', !foreignToggle.classList.contains('on'));
   ccUpdateFxRatePreview();
 });
@@ -487,14 +486,14 @@ window.addEventListener('DOMContentLoaded',()=>{
   if(typeof ccPayableCycle==='function')void renderReminders();
   else nextInfo.textContent='繳費提醒模組尚未載入，請重新整理網頁。';
 },{once:true});
-// 初次資料載入由 data-sync.js 統一處理，避免快取尚未初始化就先抓整份 Sheet。
-+fmt(twdPerForeign)+' ｜ NT$1 ≈ '+fmt(foreignPerTwd)+' '+currency+'（依輸入金額計算，非銀行公告匯率）';
+// 初次資料載入由 data-sync.js 統一處理，避免快取尚未初始化就先抓整份 Sheet。+fmt(twdPerForeign)+' ｜ NT$1 ≈ '+fmt(foreignPerTwd)+' '+currency+'（依輸入金額計算，非銀行公告匯率）';
 }
 [twdInp,foreignInp].forEach(el=>el.addEventListener('input',ccUpdateFxRatePreview));
 currencySel.addEventListener('change',ccUpdateFxRatePreview);
 foreignLine.addEventListener('click', () => {
   foreignToggle.classList.toggle('on');
   foreignFields.classList.toggle('hidden', !foreignToggle.classList.contains('on'));
+  ccUpdateFxRatePreview();
 });
 saveBtn.addEventListener('click', async () => {
   const isForeign = foreignToggle.classList.contains('on');
