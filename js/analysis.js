@@ -1,4 +1,4 @@
-// 分析頁：統一依 Sheet 帳期月份統計，包含上期剩餘、退刷與雲端版本快取
+// 分析頁：統一依結帳日月份統計，包含上期剩餘、退刷與雲端版本快取
 // 利用既有 GAS records?cycleRead=1 取得完整分頁交易，無新增或修改 Sheet。
 
 let analysisYear = '';
@@ -10,7 +10,7 @@ function analysisMoney(value){
 }
 
 function analysisAvailableYears(){
-  const recordYears=(Array.isArray(records) ? records : []).map(r=>monthKey(r.date)).filter(Boolean).map(k=>k.slice(0,4));
+  const recordYears=(Array.isArray(records) ? records : []).map(r=>ccCycleStartKey(r)).filter(Boolean).map(k=>k.slice(0,4));
   const cycled=Object.keys(ccCycleRowsByYear);
   return [...new Set([...recordYears,...cycled])].sort().reverse();
 }
@@ -19,7 +19,7 @@ function analysisAvailableMonthsForYear(year){
   if(!year) return [];
   const rows=ccAnalysisRecords(year);
   const cycleMonths=rows.map(r=>ccCycleStartKey(r)).filter(k=>k.startsWith(year+'-')).map(k=>k.slice(5,7));
-  const provisional=(Array.isArray(records)?records:[]).map(r=>monthKey(r.date)).filter(k=>k.startsWith(year+'-')).map(k=>k.slice(5,7));
+  const provisional=(Array.isArray(records)?records:[]).map(r=>ccCycleStartKey(r)).filter(k=>k.startsWith(year+'-')).map(k=>k.slice(5,7));
   return [...new Set(cycleMonths.length?cycleMonths:provisional)].sort((a,b)=>Number(b)-Number(a));
 }
 
@@ -204,7 +204,7 @@ let ccCycleSpendingByYear={};
 let ccCycleRowsByYear={};
 let ccCycleSpendingLoading=new Set();
 let ccCycleSpendingErrors={};
-const CC_CYCLE_SPENDING_CACHE_KEY='cc_cycle_spending_cache_v3_';
+const CC_CYCLE_SPENDING_CACHE_KEY='cc_cycle_spending_cache_v4_closing_month_';
 const CC_CYCLE_CHECK_MS=60000;
 let ccCycleSpendingLastCheck={};
 function ccReadCycleCache(year){
@@ -237,9 +237,21 @@ async function ccCheckCycleSpendingVersion(year){
   }catch(err){console.warn('帳期消費版本檢查失敗，繼續顯示既有快取',err);}
 }
 function ccCycleStartKey(record){
+  // 分析月份以帳期「結帳日」所屬月份為準，不是刷卡日、繳款日或分頁起始月。
   const source=String(record?.source?.sheetName||'');
-  const match=source.match(/^(\d{2})\/(\d{2})\/\d{2}$/);
-  return match?'20'+match[1]+'-'+match[2]:'';
+  const match=source.match(/^(\d{2})\/(\d{2})\/(\d{2})$/);
+  if(!match)return '';
+  const cfg=APP_CONFIG.banks[record.bank];
+  if(!cfg?.cycleStartDay)return '';
+  const start=new Date(2000+Number(match[1]),Number(match[2])-1,Number(match[3]),12);
+  if(Number.isNaN(start.getTime()))return '';
+  const next=new Date(start.getFullYear(),start.getMonth()+1,Number(cfg.cycleStartDay),12);
+  // 首期可能不是標準起始日；以下一個結帳週期前一天為結束日。
+  if(start.getDate()!==Number(cfg.cycleStartDay)){
+    if(start.getDate()<Number(cfg.cycleStartDay))next.setMonth(next.getMonth()-1);
+  }
+  next.setDate(next.getDate()-1);
+  return next.getFullYear()+'-'+String(next.getMonth()+1).padStart(2,'0');
 }
 function ccAnalysisRecords(year){
   ccHydrateCycleCache(year);
@@ -313,7 +325,7 @@ function renderBankPaymentHistory(year){
     return '<tr'+(key===selectedAnalysisMonthKey()?' class="selected"':'')+'><th scope="row">'+(i+1)+'月</th>'+cells+'<td class="payment-total">'+analysisMoney(monthSum)+'</td></tr>';
   }).join('');
   const yearSum=banks.reduce((v,b)=>v+totals[b],0);
-  root.innerHTML='<div class="payment-history-scroll"><table class="payment-history-table"><thead><tr><th scope="col">帳期月份</th>'+
+  root.innerHTML='<div class="payment-history-scroll"><table class="payment-history-table"><thead><tr><th scope="col">結帳月份</th>'+
     banks.map(b=>'<th scope="col">'+b+'</th>').join('')+'<th scope="col">合計</th></tr></thead><tbody>'+
     rows+'</tbody><tfoot><tr><th scope="row">全年合計</th>'+banks.map(b=>'<td>'+analysisMoney(totals[b])+'</td>').join('')+
     '<td class="payment-total">'+analysisMoney(yearSum)+'</td></tr></tfoot></table></div>'+
