@@ -464,5 +464,10 @@ window.addEventListener('scroll',()=>topBtn.classList.toggle('show',window.scrol
 topBtn.addEventListener('click',()=>window.scrollTo({top:0,behavior:'smooth'}));
 
 updateCycle();
-renderReminders();
+// 等所有同步載入的腳本（包含 cycle-payment.js）執行完，再初始化繳費提醒。
+// 否則 app.js 先執行會呼叫尚未定義的 ccPayableCycle。
+window.addEventListener('DOMContentLoaded',()=>{
+  if(typeof ccPayableCycle==='function')void renderReminders();
+  else nextInfo.textContent='繳費提醒模組尚未載入，請重新整理網頁。';
+},{once:true});
 // 初次資料載入由 data-sync.js 統一處理，避免快取尚未初始化就先抓整份 Sheet。
