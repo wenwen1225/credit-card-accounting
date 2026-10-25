@@ -75,7 +75,7 @@ async function ccFinishCycleBill(bank,month){
     const misplacedStatusRows=currentRows.filter(r=>(r.status||'刷')==='刷'
       && getBankCycle(bank,r.date).tab!==cycle.tab
       && !String(r.note||'').includes('上期剩餘'));
-    if(misplacedStatusRows.length && !ccStatementBackendVersion==='2.7.7')
+    if(misplacedStatusRows.length && ccStatementBackendVersion!=='2.7.7')
       throw Error('本期有 '+misplacedStatusRows.length+' 筆跨帳期入帳交易（例如 10/06 海外手續費），GAS v2.7.4 無法安全更新其「刷／繳」。請先更新 GAS v2.7.5，再重新按一次；已搬移的「上期剩餘」會保留');
     const pending=currentRows.filter(r=>(r.status||'刷')==='刷');
     planned=pending.length;
