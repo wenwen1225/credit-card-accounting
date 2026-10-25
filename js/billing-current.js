@@ -36,7 +36,7 @@ async function ccRefreshStatementArchive(){
         const data=await response.json();
         if(!data.ok||!data.archive||!data.revision||!data.paymentRevision)
           throw Error(data.error||'帳單核對 API 回傳格式不完整');
-        if(String(data.version||'')!=='2.7.7')throw Error('後端版本不相容：'+String(data.version||'未知'));
+        if(!/^2\.7\.(?:1[1-9]|[2-9]\d)$/.test(String(data.version||'')))throw Error('請先部署 GAS v2.7.11；目前版本：'+String(data.version||'未知'));
         ccStatementArchive=data.archive;
         ccStatementRevision=String(data.revision);
         ccStatementPayments=data.payments&&typeof data.payments==='object'?data.payments:{};
@@ -81,7 +81,7 @@ async function ccEditStatement(bank,month){
   if(!confirm('確認把 '+bank+' '+month+' 銀行帳單核對金額 NT$'+Number(clean).toLocaleString()+' 儲存到雲端？\n不會修改任何刷卡交易。'))return;
   ccStatementWriteBusy=true;
   try{
-    const canAuthorize=/^2\.7\.[3-9]$/.test(ccStatementBackendVersion);
+    const canAuthorize=/^2\.7\.(?:1[1-9]|[2-9]\d)$/.test(ccStatementBackendVersion);
     let deviceToken=canAuthorize?ccStatementDeviceToken():'';
     let adminKey='';
     if(!deviceToken){
@@ -257,7 +257,7 @@ async function toggleRecordToNext(recordKey){
   try{
     const response=await fetch(API_URL+'?action=health&_='+Date.now(),{cache:'no-store'});
     const health=await response.json();
-    if(!health.ok || !['2.7.1','2.7.2','2.7.3','2.7.4','2.7.5','2.7.6','2.7.7'].includes(String(health.version||'')))throw Error('後端版本不相容；未執行搬移');
+    if(!health.ok || !/^2\.7\.(?:1[1-9]|[2-9]\d)$/.test(String(health.version||'')))throw Error('請先部署 GAS v2.7.11；未執行搬移');
     const result=await postToApi({action:'moveRecordToNextCycle',source:record.source});
     if(!result.record?.source?.rowHash)throw Error('搬移結果尚未確認，請檢查 Sheet');
     if(typeof ccMarkLocalMutation==='function')ccMarkLocalMutation();
