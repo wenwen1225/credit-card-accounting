@@ -85,11 +85,16 @@ async function ccFinishCycleBill(bank,month){
     planned=pending.length;
     if(alreadyPaid && !deferred.length && !pending.length){if(typeof renderReminders==='function')await renderReminders();alert(bank+' '+month+' 已完成繳費，Sheet 全部交易也已是「繳」，不需重複操作。');return;}
     const names=deferred.map(r=>'・'+r.item+'　NT$'+Number(r.twd).toLocaleString('zh-TW')).join('\n');
-    const confirmText=bank+' '+month+' 帳單 NT$'+amount.toLocaleString('zh-TW')+
-      (alreadyPaid?'\n銀行繳費：已確認（不會重複繳費）':'\n銀行繳費：確認你已實際繳納這期帳單')+
-      '\n\n'+(deferred.length?'延至下期 '+deferred.length+' 筆：\n'+names+'\n':'')+
-      '本期 Sheet 交易：'+initialCount+' 筆\n' +
-      '本期 Sheet 合計：NT;
+    const confirmText = [
+      bank+' '+month+' 帳單 NT$'+amount.toLocaleString('zh-TW'),
+      alreadyPaid?'銀行繳費：已確認（不會重複繳費）':'銀行繳費：確認你已實際繳納這期帳單',
+      deferred.length?'延至下期 '+deferred.length+' 筆：'+names:'',
+      '本期 Sheet 交易：'+initialCount+' 筆',
+      '本期 Sheet 合計：NT$'+subtotal.toLocaleString('zh-TW'),
+      '已標記「繳」：'+alreadyMarked+' 筆',
+      '待同步「刷→繳」：'+pending.length+' 筆',
+      '只有總額符合銀行帳單才會執行，完成後會重新核對全部交易。確定執行？'
+    ].filter(Boolean).join(String.fromCharCode(10));
     if(!confirm(confirmText))return;
     // 先記錄銀行已繳，再處理搬移和交易狀態；如後續中斷，可重按補完。
     if(!alreadyPaid){
