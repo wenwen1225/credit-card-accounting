@@ -526,3 +526,6 @@ textarea{min-height:78px;resize:vertical}
   .cc-currency-entry .cc-currency-prefix{min-width:48px;padding-inline:8px;font-size:13px;}
   .cc-currency-entry input{padding-inline:9px;}
 }
+
+/* 即時計算外幣刷卡有效匯率（僅顯示，不寫入 Sheet）。 */
+.cc-fx-rate-preview{margin:10px 0 3px;padding:12px 14px;border:1px solid #d8e7f5;border-radius:12px;background:#f0f7fd;color:#365f81;font-size:13px;font-weight:700;line-height:1.65;font-variant-numeric:tabular-nums}
