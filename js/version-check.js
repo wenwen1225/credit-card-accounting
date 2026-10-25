@@ -21,8 +21,7 @@ async function checkAppVersion(){
     if(!data.ok) throw new Error(data.error || '版本檢查失敗');
 
     const backend = String(data.version || '').replace(/^v/i, '');
-    const supported = ['2.7.5','2.7.6'];
-    const matched = supported.includes(backend) && supported.includes(String(expected).replace(/^v/i, ''));
+    const matched = backend === String(expected).replace(/^v/i, '');
 
     detail.textContent = `網站 ${frontend}｜Apps Script v${backend || '未知'}`;
     status.className = `version-state ${matched ? 'ok' : 'mismatch'}`;
