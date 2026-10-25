@@ -101,21 +101,21 @@
   <script src="js/version-check.js?v=20261025-syncfix-v551"></script>
   <script>
   (() => {
-    const rate=document.getElementById('ccFxRatePreview');
-    const twd=document.getElementById('twdInp');
-    const foreign=document.getElementById('foreignInp');
-    const currency=document.getElementById('currencySel');
-    const toggle=document.getElementById('foreignToggle');
-    if(!rate||!twd||!foreign||!currency||!toggle)return;
+    const el=id=>document.getElementById(id);
+    const [rate,twd,fx,cur,toggle]=['ccFxRatePreview','twdInp','foreignInp','currencySel','foreignToggle'].map(el);
+    if(!rate||!twd||!fx||!cur||!toggle)return;
     const update=()=>{
-      const t=Number(twd.value.replace(/,/g,''));
-      const f=Number(foreign.value.replace(/,/g,''));
-      if(!toggle.classList.contains('on')||!Number.isFinite(t)||!Number.isFinite(f)||t<=0||f<=0){
-        rate.textContent='輸入台幣與外幣金額後，自動顯示本筆換算匯率。';return;
-      }
-      const fmt=n=>n.toLocaleString('zh-TW',{maximumFractionDigits:n<0.01?8:6});
-      rate.textContent='1 '+currency.value+' ≈ NT
-
+      const t=Number(twd.value.replaceAll(',','')),f=Number(fx.value.replaceAll(',',''));
+      if(!toggle.classList.contains('on')||!(t>0&&f>0)){rate.textContent='請輸入台幣與外幣金額以計算匯率';return;}
+      const fmt=n=>n.toLocaleString('zh-TW',{maximumFractionDigits:6});
+      rate.textContent='1 '+cur.value+' = NT$'+fmt(t/f)+'；NT$1 = '+fmt(f/t)+' '+cur.value+'（依輸入金額計算）';
+    };
+    [twd,fx].forEach(e=>e.addEventListener('input',update));
+    cur.addEventListener('change',update);
+    el('foreignLine')?.addEventListener('click',()=>setTimeout(update,0));
+    update();
+  })();
+  </script>
 <!-- Wen's Space navigation: isolated from app logic -->
 <a id="wensSpaceHomeLink" href="https://wens-space.vercel.app/" aria-label="返回 Wen's Space 首頁" style="position:fixed;right:max(12px,env(safe-area-inset-right));top:max(12px,env(safe-area-inset-top));z-index:9999;display:inline-flex;align-items:center;gap:7px;padding:11px 15px;border-radius:999px;background:#7154a1;color:#fff;text-decoration:none;font:600 13px/1.2 -apple-system,BlinkMacSystemFont,'Noto Sans TC',sans-serif;box-shadow:0 5px 20px #3b235a40;border:1px solid #ffffff55">⌂ 返回 Wen's Space</a>
 </body>
