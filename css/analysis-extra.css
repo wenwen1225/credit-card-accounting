@@ -78,3 +78,9 @@
 .payment-history-table tfoot td{background:#fff0d7;color:#755021;border-top:2px solid #e8bd78;font-weight:900}
 .payment-history-table tfoot th:first-child{background:#fff0d7}
 .payment-history-table tfoot .payment-total{color:#8b4d12}
+
+/* 每月合計欄：柔和薰衣草紫，與年度合計杏金色區分。 */
+.payment-history-table thead th:last-child{background:#eee8fa;color:#66528d}
+.payment-history-table tbody td.payment-total{background:#f5f0fd;color:#70539b;font-weight:900;border-left:2px solid #e1d5f3}
+.payment-history-table tbody tr.selected td.payment-total{background:#ece3fa;color:#62428c}
+.payment-history-table tfoot td.payment-total{background:#ffe4b5;color:#8b4d12;border-left:2px solid #e8bd78}
