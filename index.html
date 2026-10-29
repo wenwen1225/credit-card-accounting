@@ -52,6 +52,8 @@
       <div class="section-label">月份</div><div id="monthTabs" class="tabs"></div>
       <div class="legend"><span class="l-ctbc">中信</span><span class="l-cathay">國泰</span><span class="l-taishin">台新</span><span class="l-fubon">富邦</span></div>
       <div id="bankTabs" class="tabs"><button class="chip active" data-bank="全部">全部銀行</button><button class="chip" data-bank="中信">中信</button><button class="chip" data-bank="國泰">國泰</button><button class="chip" data-bank="台新">台新</button><button class="chip" data-bank="富邦">富邦</button></div>
+      <div class="section-label">幣別</div>
+      <div id="currencyTabs" class="tabs compact-tabs" role="group" aria-label="幣別篩選"><button type="button" class="chip active" data-currency="all">全部</button><button type="button" class="chip" data-currency="twd">台幣</button><button type="button" class="chip" data-currency="foreign">外幣</button></div>
       <div class="section-label">交易類型</div>
       <div id="typeTabs" class="tabs compact-tabs"><button class="chip active" data-type="all">全部</button><button class="chip" data-type="purchase">消費</button><button class="chip" data-type="refund">退刷</button></div>
       <div class="record-tools-row"><div id="recordStateTabs" class="tabs compact-tabs record-state-tabs"><button class="chip active" data-state="all">全部紀錄</button><button class="chip" data-state="pending">待補金額 <span id="pendingCountBadge" class="count-badge hidden">0</span></button></div><button id="clearFiltersBtn" class="clear-filter-btn" type="button">清除篩選</button></div>
@@ -96,7 +98,7 @@
   <script src="js/billing-current.js?v=20261025-paymentdate-v557"></script>
   <script src="js/cycle-payment.js?v=20261025-paymentdate-v557"></script>
   <script src="js/transaction-type.js?v=20261025-syncfix-v551"></script>
-  <script src="js/record-filter.js?v=20261025-syncfix-v551"></script>
+  <script src="js/record-filter.js?v=20261029-currency-filter"></script>
   <script src="js/analysis.js?v=20261025-syncfix-v551"></script>
   <script src="js/year-manager.js?v=20261025-syncfix-v551"></script>
   <script src="js/version-check.js?v=20261025-syncfix-v551"></script>

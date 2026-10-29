@@ -2,6 +2,8 @@
 
 let recordStateFilter = 'all';
 let transactionTypeFilter = 'all';
+let recordCurrencyFilter = 'all';
+const currencyTabs = document.getElementById('currencyTabs');
 const recordStateTabs = document.getElementById('recordStateTabs');
 const typeTabs = document.getElementById('typeTabs');
 const pendingCountBadge = document.getElementById('pendingCountBadge');
@@ -25,8 +27,31 @@ typeTabs?.querySelectorAll('.chip').forEach(btn => {
   });
 });
 
+currencyTabs?.querySelectorAll('.chip').forEach(btn => {
+  btn.addEventListener('click', () => {
+    currencyTabs.querySelectorAll('.chip').forEach(x => x.classList.remove('active'));
+    btn.classList.add('active');
+    recordCurrencyFilter = btn.dataset.currency || 'all';
+    renderRecords();
+  });
+});
+
+function isForeignRecord(record){
+  const currency = String(record.currency || '').trim().toUpperCase();
+  const amount = Number(record.foreign);
+  return currency !== 'TWD' && currency !== 'NT$' &&
+    (currency !== '' || (Number.isFinite(amount) && Math.abs(amount) > 0));
+}
+
+function matchesRecordCurrency(record){
+  return recordCurrencyFilter === 'all' ||
+    (recordCurrencyFilter === 'foreign' ? isForeignRecord(record) : !isForeignRecord(record));
+}
+
 clearFiltersBtn?.addEventListener('click', () => {
   bankFilter = '全部';
+  recordCurrencyFilter = 'all';
+  currencyTabs?.querySelectorAll('.chip').forEach(btn => btn.classList.toggle('active', btn.dataset.currency === 'all'));
   transactionTypeFilter = 'all';
   recordStateFilter = 'all';
   searchInp.value = '';
@@ -45,6 +70,7 @@ function updatePendingCount(){
   if(!pendingCountBadge) return;
   let contextList = records.filter(r => monthKey(r.date) === currentMonth && (bankFilter === '全部' || r.bank === bankFilter));
   if(transactionTypeFilter !== 'all') contextList = contextList.filter(r => recordTransactionType(r) === transactionTypeFilter);
+  contextList = contextList.filter(matchesRecordCurrency);
   const count = contextList.filter(isPendingAmount).length;
   pendingCountBadge.textContent = String(count);
   pendingCountBadge.classList.toggle('hidden', count === 0);
@@ -82,6 +108,7 @@ renderRecords = function(){
   const q = searchInp.value.trim().toLowerCase();
   let list = records.filter(r => monthKey(r.date) === currentMonth && (bankFilter === '全部' || r.bank === bankFilter));
   if(transactionTypeFilter !== 'all') list = list.filter(r => recordTransactionType(r) === transactionTypeFilter);
+  list = list.filter(matchesRecordCurrency);
   if(recordStateFilter === 'pending') list = list.filter(isPendingAmount);
   if(q) list = list.filter(r => (`${r.item} ${r.note} ${r.card} ${recordTransactionType(r) === 'refund' ? '退刷 退款' : '消費'}`).toLowerCase().includes(q));
 
