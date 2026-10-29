@@ -40,7 +40,7 @@ function isForeignRecord(record){
   const currency = String(record.currency || '').trim().toUpperCase();
   const amount = Number(record.foreign);
   return currency !== 'TWD' && currency !== 'NT$' &&
-    (currency !== '' || (Number.isFinite(amount) && Math.abs(amount) > 0));
+    Number.isFinite(amount) && Math.abs(amount) > 0;
 }
 
 function matchesRecordCurrency(record){
