@@ -310,7 +310,7 @@ function renderBillingOverview(){
       cards.push('<div class="billing-card '+bankClass(bank)+'"><div class="billing-head"><strong>'+esc(bank)+'</strong><span>結帳 '+(openCycle.e.getMonth()+1)+'/'+openCycle.e.getDate()+'｜'+ccDueDateLabel(openCycle,cfg.paymentDueDay)+'</span></div><div class="billing-cycle-label">首期累積｜'+rangeText(openCycle)+'</div><div class="billing-amount">'+moneyText(sumTwd(openRaw))+'</div>'+cycleMismatchNotice(bank,openCycle)+pendingCycleHtml(bank,openCycle)+'<div class="billing-note">首期依實際 Google Sheet 分頁計算；前一期資訊尚未確認，不推算上一期應繳金額。</div></div>');
       return;
     }
-    const snapshotKey = dateToInput(now).slice(0,7);
+    const snapshotKey = dateToInput(closedCycle.e).slice(0,7);
     const knownStatement = ccStatementArchive[snapshotKey]?.[bank];
     const paymentRecord=ccStatementPayments?.[snapshotKey]?.[bank];
     const bankPaid=paymentRecord?.paid===true && Number(paymentRecord.amount)===Number(knownStatement);

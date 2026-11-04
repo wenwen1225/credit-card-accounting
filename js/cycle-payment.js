@@ -35,6 +35,12 @@ function ccPayableCycle(bank,y,m){
   lastDay.setDate(lastDay.getDate()-1);
   return getBankCycle(bank,dateToInput(lastDay));
 }
+// 雲端帳單鍵固定使用結帳月份，繳款月份只用於提醒日期。
+function ccStatementCycle(bank,month){
+  const [y,m]=month.split('-').map(Number),cfg=APP_CONFIG.banks[bank];
+  const close=new Date(y,m-1,cfg.cycleStartDay-1,12);
+  return getBankCycle(bank,dateToInput(close));
+}
 function ccCyclePaymentStatus(message){
   const el=document.getElementById('ccCyclePaymentStatus');
   if(el)el.textContent=message;
@@ -44,7 +50,8 @@ function ccBillAmount(rows){
   return rows.reduce((n,r)=>n+(r.transactionType==='refund'?-Math.abs(Number(r.twd)):Number(r.twd)),0);
 }
 async function ccMarkCyclePaid(bank,y,m){
-  return ccFinishCycleBill(bank,y+'-'+pad(m));
+  const cycle=ccPayableCycle(bank,y,m);
+  return ccFinishCycleBill(bank,dateToInput(cycle.e).slice(0,7));
 }
 async function ccSyncPaidTransactions(bank,month){
   // 舊版已繳帳單的補做入口，使用完全相同的單一流程。
@@ -68,7 +75,7 @@ async function ccFinishCycleBill(bank,month){
     if(!ccStatementCloudReady || !ccSupportsPaymentBackend(ccStatementBackendVersion) || !ccStatementPaymentRevision)
       throw Error('請先部署 GAS v2.7.11（或相容新版）後，再執行帳單繳費同步');
     const [y,m]=month.split('-').map(Number);
-    const cycle=ccPayableCycle(bank,y,m);
+    const cycle=ccStatementCycle(bank,month);
     const amount=ccStatementArchive?.[month]?.[bank];
     if(typeof amount!=='number' || !Number.isFinite(amount) || amount<=0)
       throw Error('本期沒有已核對的正數銀行帳單，無需繳費');

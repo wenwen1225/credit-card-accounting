@@ -414,7 +414,7 @@ async function renderReminders(){
     const cards=[];
     for(const {bank,cfg,cycle} of cycles){
       // 銀行帳單應繳額與 Sheet 交易狀態是兩種資料；延後請款可造成正常差額。
-      const month=y+'-'+pad(m);
+      const month=dateToInput(cycle.e).slice(0,7);
       const cloudReady=typeof ccStatementCloudReady!=='undefined' && ccStatementCloudReady;
       const statement=cloudReady && typeof ccStatementArchive!=='undefined'?ccStatementArchive?.[month]?.[bank]:undefined;
       const confirmed=typeof statement==='number' && Number.isFinite(statement);
