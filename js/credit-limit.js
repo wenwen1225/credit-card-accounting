@@ -74,6 +74,16 @@ function ccCreditCycleMonth(bank, tab){
   // 雲端核對帳單依結帳月份存放；台新／富邦繳款日落在下個月，不能用繳款月份配對。
   return dateToInput(cycle.e).slice(0,7);
 }
+// 帳單鍵為結帳月份，繳款日可能落在下一個月。
+function ccCreditDueDate(bank,month){
+  if(!/^20\d{2}-(0[1-9]|1[0-2])$/.test(String(month)))return '';
+  const cfg=APP_CONFIG.banks[bank];
+  if(!Number.isInteger(cfg?.cycleStartDay) || !Number.isInteger(cfg?.paymentDueDay))return '';
+  const [year,m]=month.split('-').map(Number);
+  const end=new Date(year,m-1,cfg.cycleStartDay-1,12);
+  const due=ccDueDateForClosedCycle({e:end},cfg.paymentDueDay);
+  return due?dateToInput(due):'';
+}
 function ccCreditCalculate(bank, rows, archive, payments){
   const groups=new Map();
   for(const r of ccUniqueSourceRecords(rows).filter(r=>r.bank===bank)){
@@ -83,18 +93,23 @@ function ccCreditCalculate(bank, rows, archive, payments){
   }
   for(const month of Object.keys(archive||{}))if(archive[month]?.[bank]!==undefined && !groups.has(month))groups.set(month,[]);
   let billed=0, unbilled=0, missing=0;
+  const dueDates=new Set();
   for(const [month,items] of groups){
     const statement=archive?.[month]?.[bank], payment=payments?.[month]?.[bank];
     const verified=typeof statement==='number' && Number.isFinite(statement) && statement>=0;
     // 銀行帳單已繳後，即使舊 Sheet 尚未完成同步也不再次占額。
     if(verified && payment?.paid===true && Number(payment.amount)===statement)continue;
-    if(verified){billed+=statement;continue;}
+    if(verified){
+      billed+=statement;
+      if(statement>0){const due=ccCreditDueDate(bank,month);if(due)dueDates.add(due);}
+      continue;
+    }
     const unpaid=items.filter(r=>(r.status||'刷')!=='繳');
     missing+=unpaid.filter(r=>!['刷',''].includes(r.status||'') || r.twd===null || r.twd==='' || !Number.isFinite(Number(r.twd))).length;
     unbilled+=sumTwd(unpaid);
   }
   const used=Math.max(0,Math.round((billed+unbilled)*100)/100);
-  return {billed,unbilled,used,missing,available:CC_CREDIT_LIMITS[bank]-used};
+  return {billed,unbilled,used,missing,dueDates:[...dueDates].sort(),available:CC_CREDIT_LIMITS[bank]-used};
 }
 function ccRenderCreditLimits(){
   const root=document.getElementById('creditLimits');if(!root)return;
@@ -104,7 +119,7 @@ function ccRenderCreditLimits(){
     if(ready){try{result=ccCreditCalculate(bank,ccCreditRows,ccStatementArchive,ccStatementPayments);}catch(e){error=e.message;}}
     const valid=result && !result.missing && limit!==null;
     const percent=valid?Math.min(100,result.used/limit*100):0;
-    return `<div class="billing-card ${bankClass(bank)} cc-credit-card"><div class="billing-head"><strong>${esc(bank)}</strong><span>共用額度 ${limit===null?'尚未設定':moneyText(limit)}</span></div><div class="billing-cycle-label">估算可用額度</div><div class="billing-amount">${valid?moneyText(result.available):'待確認'}</div>${valid?`<progress max="100" value="${percent}" aria-label="${esc(bank)}額度使用比例"></progress><div class="cc-credit-detail"><span>已占用</span><strong>${moneyText(result.used)}</strong><span>已核對待繳</span><strong>${moneyText(result.billed)}</strong><span>其餘未繳消費（含未出帳）</span><strong>${moneyText(result.unbilled)}</strong></div>${result.available<0?'<div class="billing-warning">記錄金額已超過設定額度，請核對帳務。</div>':''}`:`<div class="billing-note">${esc((limit===null?'請按「設定額度」填入銀行共用額度':error) || (result?.missing?'有未繳交易尚未補齊金額或進度':ccCreditError || (!ccStatementCloudReady?'帳單繳費狀態尚未確認':'正在核對全部年度帳務…')))}</div>`}</div>`;
+    return `<div class="billing-card ${bankClass(bank)} cc-credit-card"><div class="billing-head"><strong>${esc(bank)}</strong><span>共用額度 ${limit===null?'尚未設定':moneyText(limit)}</span></div><div class="billing-cycle-label">估算可用額度</div><div class="billing-amount">${valid?moneyText(result.available):'待確認'}</div>${valid?`<progress max="100" value="${percent}" aria-label="${esc(bank)}額度使用比例"></progress><div class="cc-credit-detail"><span>已占用</span><strong>${moneyText(result.used)}</strong><span>已核對待繳${result.dueDates.length?'<small style="display:block;margin-top:4px;line-height:1.5">繳費期限：'+result.dueDates.map(d=>d.replace(/-/g,'/')).join('、')+'</small>':''}</span><strong>${moneyText(result.billed)}</strong><span>其餘未繳消費（含未出帳）</span><strong>${moneyText(result.unbilled)}</strong></div>${result.available<0?'<div class="billing-warning">記錄金額已超過設定額度，請核對帳務。</div>':''}`:`<div class="billing-note">${esc((limit===null?'請按「設定額度」填入銀行共用額度':error) || (result?.missing?'有未繳交易尚未補齊金額或進度':ccCreditError || (!ccStatementCloudReady?'帳單繳費狀態尚未確認':'正在核對全部年度帳務…')))}</div>`}</div>`;
   }).join('')+'</div><div class="billing-note">依已記錄的消費、退刷與繳費狀態估算；完成本期繳費後恢復額度。同銀行卡片共用額度。未記錄的分期餘額、預授權或銀行入帳時間差，請以銀行 App 為準。</div>';
   root.querySelector('#ccCreditCloudSync')?.addEventListener('click',()=>ccCreditCloudSync(true));
   const queue=typeof ccQueueRead==='function'?ccQueueRead():[];
