@@ -386,7 +386,7 @@ async function renderReminders(){
   const request=++ccReminderRequest;
   const now=new Date(), y=now.getFullYear(), m=now.getMonth()+1, d=now.getDate();
   reminders.innerHTML='';
-  nextInfo.textContent='正在核對 Google Sheet 繳費帳期…';
+  nextInfo.textContent='正在整理繳費提醒…';
   if(!navigator.onLine){nextInfo.textContent='離線中，暫不顯示未經確認的繳費提醒。';return;}
   try{
     // 以最新 Google Sheet 的未繳交易判斷提醒；本機 paid 只當作舊版歷史資訊，不阻擋其他裝置的提醒。
@@ -395,7 +395,10 @@ async function renderReminders(){
     const cycles=candidates.map(([bank,cfg])=>({bank,cfg,cycle:ccPayableCycle(bank,y,m)}));
     // 提醒只需要當期分頁；不要為了少數銀行讀取整年度數百筆資料。
     // 全年資料查詢若超時，會造成交易已同步但上方提醒顯示無法核對。
+    // 提醒重用完整額度快照；寫入繳費前另行強制核對。
+    const cachedRows=typeof ccCreditRows!=='undefined' && ccCreditRows!==null?ccCreditRows:null;
     const results=await Promise.all(cycles.map(async ({bank,cycle})=>{
+      if(cachedRows)return cachedRows.filter(r=>r.bank===bank && r.source?.sheetName===cycle.tab);
       let lastError;
       for(let attempt=0;attempt<2;attempt++){
         try{

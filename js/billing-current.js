@@ -21,11 +21,26 @@ let ccStatementPaymentRevision='';
 let ccStatementCloudError='正在向雲端確認銀行核對金額…';
 let ccStatementWriteBusy=false;
 let ccStatementBackendVersion='';
+// 完整帳單及繳費快照；重整不必再下載相同資料。
+const CC_STATEMENT_SNAPSHOT_KEY='cc_statement_snapshot_v1';
+function ccSaveStatementSnapshot(){
+  if(!ccStatementCloudReady)return;
+  try{localStorage.setItem(CC_STATEMENT_SNAPSHOT_KEY,JSON.stringify({archive:ccStatementArchive,payments:ccStatementPayments,revision:ccStatementRevision,paymentRevision:ccStatementPaymentRevision,version:ccStatementBackendVersion}));}catch(_){}
+}
+try{
+  const saved=JSON.parse(localStorage.getItem(CC_STATEMENT_SNAPSHOT_KEY)||'null');
+  if(saved?.archive && saved.payments && saved.revision && saved.paymentRevision && ccSupportsPaymentBackend(saved.version)){
+    ccStatementArchive=saved.archive;ccStatementPayments=saved.payments;
+    ccStatementRevision=saved.revision;ccStatementPaymentRevision=saved.paymentRevision;
+    ccStatementBackendVersion=saved.version;ccStatementCloudReady=true;ccStatementCloudError='';
+  }
+}catch(_){}
 const CC_DEVICE_TOKEN_KEY='cc_statement_device_token_v1';
 function ccStatementDeviceToken(){try{return localStorage.getItem(CC_DEVICE_TOKEN_KEY)||'';}catch(_){return '';}}
 function ccStatementDeviceName(){return /iPhone|iPad/i.test(navigator.userAgent||'')?'iPhone／iPad':/Mac/i.test(navigator.userAgent||'')?'Mac 瀏覽器':'私人瀏覽器';}
 let ccStatementRefreshInFlight=null;
-async function ccRefreshStatementArchive(){
+async function ccRefreshStatementArchive(options={}){
+  if(!options.force && ccStatementCloudReady)return true;
   if(ccStatementRefreshInFlight)return ccStatementRefreshInFlight;
   ccStatementRefreshInFlight=(async()=>{
     let lastError=null;
@@ -44,6 +59,7 @@ async function ccRefreshStatementArchive(){
         ccStatementBackendVersion=String(data.version);
         ccStatementCloudReady=true;
         ccStatementCloudError='';
+        ccSaveStatementSnapshot();
         try{localStorage.setItem(CC_STATEMENT_KEY,JSON.stringify(data.archive));}catch(err){console.warn('瀏覽器快取未儲存',err);}
         lastError=null;
         break;
@@ -106,13 +122,14 @@ async function ccEditStatement(bank,month){
     ccStatementCloudReady=true;
     ccStatementCloudError='';
     try{localStorage.setItem(CC_STATEMENT_KEY,JSON.stringify(data.archive));}catch(err){console.warn('本機快取寫入失敗',err);}
+    ccSaveStatementSnapshot();
     renderBillingOverview();
     if(typeof renderReminders==='function')void renderReminders();
     alert('銀行帳單金額已儲存到雲端，可在其他裝置重新開啟網頁查看。');
   }catch(err){
     // 不確定是否已送達 GAS 時，一律重新讀取雲端；不可將本機值冒充雲端成功。
     if(/裝置授權已過期|裝置授權無效|裝置授權已.*撤銷/.test(String(err.message||''))){try{localStorage.removeItem(CC_DEVICE_TOKEN_KEY);}catch(_){}}
-    await ccRefreshStatementArchive();
+    await ccRefreshStatementArchive({force:true});
     alert('儲存未確認：'+err.message+'\n已重新核對雲端，請確認金額後再操作。');
   }finally{ccStatementWriteBusy=false;}
 }

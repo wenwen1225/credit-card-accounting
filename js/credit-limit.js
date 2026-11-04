@@ -7,13 +7,20 @@ function ccReadCreditLimits(){
 }
 let CC_CREDIT_LIMITS=ccReadCreditLimits();
 let ccCreditCloudReady=false,ccCreditCloudRevision='',ccCreditCloudError='',ccCreditCloudBusy=false,ccCreditCloudChecked=0;
+try{
+  const revision=localStorage.getItem('cc_credit_revision_v1');
+  if(revision && CC_CREDIT_BANKS.every(b=>Number.isInteger(CC_CREDIT_LIMITS[b]) && CC_CREDIT_LIMITS[b]>0)){
+    ccCreditCloudRevision=revision;ccCreditCloudReady=true;
+  }
+}catch(_){}
 function ccCreditAcceptCloud(data){
   if(!data?.limits || !data.creditRevision || CC_CREDIT_BANKS.some(b=>!Number.isInteger(data.limits[b]) || data.limits[b]<=0 || data.limits[b]>1000000000))throw Error('雲端額度回傳不完整');
   CC_CREDIT_LIMITS=Object.fromEntries(CC_CREDIT_BANKS.map(b=>[b,data.limits[b]]));
   ccCreditCloudRevision=data.creditRevision;ccCreditCloudReady=true;ccCreditCloudError='';
-  try{localStorage.setItem(CC_CREDIT_SETTINGS_KEY,JSON.stringify(CC_CREDIT_LIMITS));}catch(_){}
+  try{localStorage.setItem(CC_CREDIT_SETTINGS_KEY,JSON.stringify(CC_CREDIT_LIMITS));localStorage.setItem('cc_credit_revision_v1',ccCreditCloudRevision);}catch(_){}
 }
 async function ccCreditCloudSync(interactive=false){
+  if(!interactive && ccCreditCloudReady)return true;
   if(ccCreditCloudBusy)return false;
   ccCreditCloudBusy=true;
   try{
@@ -80,7 +87,7 @@ let ccCreditSnapshot=ccCreditReadSnapshot();
 let ccCreditByYear=ccCreditSnapshot?.byYear || {};
 let ccCreditRows=ccCreditSnapshot?ccUniqueSourceRecords(Object.values(ccCreditByYear).flatMap(part=>part.rows)):null;
 let ccCreditError='',ccCreditLoading=false,ccCreditEpoch=ccCreditSnapshot?ccMutationEpoch:-1;
-let ccCreditVerified=false,ccCreditLastChecked=0,ccCreditRefreshPromise=null,ccCreditForceQueued=false,ccCreditChangeTimer=null;
+let ccCreditVerified=Boolean(ccCreditSnapshot),ccCreditLastChecked=0,ccCreditRefreshPromise=null,ccCreditForceQueued=false,ccCreditChangeTimer=null;
 function ccCreditSaveSnapshot(){
   if(!ccCreditVerified || !ccStatementCloudReady || ccCreditEpoch!==ccMutationEpoch)return;
   const snapshot={schema:2,byYear:ccCreditByYear,archive:ccStatementArchive,payments:ccStatementPayments,
@@ -167,7 +174,7 @@ function ccRenderCreditLimits(){
 async function ccRefreshCreditLimits(options={}){
   const force=options.force===true;
   if(ccCreditRefreshPromise){if(force)ccCreditForceQueued=true;return ccCreditRefreshPromise;}
-  if(!force && ccCreditVerified && ccCreditEpoch===ccMutationEpoch && Date.now()-ccCreditLastChecked<60000){ccRenderCreditLimits();return;}
+  if(!force && ccCreditVerified && ccCreditEpoch===ccMutationEpoch){ccRenderCreditLimits();return;}
   ccCreditLoading=true;ccCreditError='';ccRenderCreditLimits();
   const epoch=ccMutationEpoch;
   const mutationChanged=ccCreditEpoch!==epoch;
@@ -216,15 +223,20 @@ function ccCreditScheduleMutation(){
 const ccCreditOriginalBilling=renderBillingOverview;
 renderBillingOverview=function(){ccCreditOriginalBilling();ccRenderCreditLimits();ccCreditScheduleMutation();};
 const ccCreditOriginalLoad=loadRecords;
-loadRecords=async function(options={}){await ccCreditOriginalLoad(options);await ccRefreshCreditLimits();};
+loadRecords=async function(options={}){
+  if(options.force)await ccRefreshStatementArchive({force:true});
+  await ccCreditOriginalLoad(options);
+  await ccRefreshCreditLimits({force:options.force===true});
+  if(typeof renderReminders==='function')void renderReminders();
+};
 document.getElementById('editCreditLimits')?.addEventListener('click',ccEditCreditLimits);
-document.getElementById('refreshCreditLimits')?.addEventListener('click',async()=>{await ccRefreshStatementArchive();await ccCreditCloudSync(false);await ccRefreshCreditLimits({force:true});});
+document.getElementById('refreshCreditLimits')?.addEventListener('click',async()=>{await ccRefreshStatementArchive({force:true});await ccCreditCloudSync(true);await ccRefreshCreditLimits({force:true});});
 ccRenderCreditLimits();
 
 window.addEventListener('DOMContentLoaded',()=>{void ccCreditCloudSync(false);});
 function ccCreditCloudOnReturn(){
   if(document.visibilityState==='hidden' || !navigator.onLine || Date.now()-ccCreditCloudChecked<60000 || document.querySelector('.cc-credit-settings'))return;
-  ccCreditCloudChecked=Date.now();void ccCreditCloudSync(false);void ccRefreshCreditLimits();
+  ccRenderCreditLimits();
 }
 window.addEventListener('focus',ccCreditCloudOnReturn);
 window.addEventListener('visibilitychange',ccCreditCloudOnReturn);

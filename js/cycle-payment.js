@@ -71,7 +71,7 @@ async function ccFinishCycleBill(bank,month){
   let moved=0,updated=0,planned=0;
   try{
     // 跨裝置資料一律重新從 GAS 讀取，不根據快取做修改。
-    await ccRefreshStatementArchive();
+    await ccRefreshStatementArchive({force:true});
     if(!ccStatementCloudReady || !ccSupportsPaymentBackend(ccStatementBackendVersion) || !ccStatementPaymentRevision)
       throw Error('請先部署 GAS v2.7.11（或相容新版）後，再執行帳單繳費同步');
     const [y,m]=month.split('-').map(Number);
@@ -178,6 +178,7 @@ async function ccFinishCycleBill(bank,month){
         throw Error('後端未確認本期繳費狀態，請先檢查再重試');
       ccStatementPayments=confirmation.payments;
       ccStatementPaymentRevision=confirmation.paymentRevision;
+      ccSaveStatementSnapshot();
     }
     await loadRecords({force:true});
     if(typeof renderReminders==='function')await renderReminders();
@@ -194,7 +195,7 @@ async function ccFinishCycleBill(bank,month){
   }catch(err){
     // 逐筆寫入可能部分成功；雲端重讀後再執行，已完成的部分不會重複更新。
     try{await loadRecords({force:true});}catch(_){}
-    try{await ccRefreshStatementArchive();}catch(_){}
+    try{await ccRefreshStatementArchive({force:true});}catch(_){}
     ccCyclePaymentStatus('帳務整理中斷：延後 '+moved+' 筆，更新 '+updated+' 筆');
     alert('帳務整理尚未全部完成：'+err.message+
       '\n已搬移 '+moved+' 筆、更新 '+updated+' 筆。\n請先確認 Sheet，再重按同一個按鈕補完。');
