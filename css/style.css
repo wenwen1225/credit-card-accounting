@@ -726,3 +726,7 @@ textarea{min-height:78px;resize:vertical}
 @media (min-width:700px) and (max-width:1099px){
   .app > header .version-card {width:100%;max-width:none;}
 }
+
+.cc-credit-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}.cc-credit-heading h2{margin:0}.cc-credit-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.cc-credit-card{min-width:0;margin:0}.cc-credit-card .billing-head{flex-wrap:wrap;gap:6px}.cc-credit-card .billing-amount{font-size:clamp(22px,4vw,30px);overflow-wrap:anywhere}.cc-credit-card progress{width:100%;height:9px;accent-color:#8062b2;margin:10px 0}.cc-credit-detail{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:7px;font-size:13px;align-items:start}.cc-credit-detail strong{text-align:right}#creditLimits{margin-bottom:24px}@media(max-width:520px){.cc-credit-grid{grid-template-columns:1fr}.cc-credit-heading h2{font-size:19px}}
+
+.cc-credit-heading{flex-wrap:wrap}.cc-credit-settings{border:0;border-radius:18px;padding:24px;max-width:360px;width:calc(100% - 40px)}.cc-credit-settings::backdrop{background:#0006}.cc-credit-settings label{display:block;margin:12px 0}.cc-credit-settings input{display:block;width:100%;box-sizing:border-box;margin-top:6px;padding:10px;font-size:16px}.cc-credit-settings button{padding:10px 18px;margin-right:8px}.cc-credit-settings p{font-size:13px;line-height:1.6}
