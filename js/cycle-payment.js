@@ -65,7 +65,7 @@ async function ccFinishCycleBill(bank,month){
   try{
     // 跨裝置資料一律重新從 GAS 讀取，不根據快取做修改。
     await ccRefreshStatementArchive();
-    if(!ccStatementCloudReady || !/^2\.7\.(?:1[1-9]|[2-9]\d)$/.test(ccStatementBackendVersion) || !ccStatementPaymentRevision)
+    if(!ccStatementCloudReady || !ccSupportsPaymentBackend(ccStatementBackendVersion) || !ccStatementPaymentRevision)
       throw Error('請先部署 GAS v2.7.11（或相容新版）後，再執行帳單繳費同步');
     const [y,m]=month.split('-').map(Number);
     const cycle=ccPayableCycle(bank,y,m);
@@ -118,6 +118,18 @@ async function ccFinishCycleBill(bank,month){
       '只有總額符合銀行帳單才會執行，完成後會重新核對全部交易。確定執行？'
     ].filter(Boolean).join(String.fromCharCode(10));
     if(!confirm(confirmText))return;
+    let deviceToken='',adminKey='',paidDate='';
+    if(!alreadyPaid){
+      deviceToken=typeof ccStatementDeviceToken==='function'?ccStatementDeviceToken():'';
+      adminKey='';
+      if(!deviceToken){
+        adminKey=prompt('請輸入 GAS 管理密碼以確認本期繳費：');
+        if(adminKey===null)return;
+        if(!adminKey)throw Error('管理密碼未輸入');
+      }
+      paidDate=await ccChooseActualPaidDate(bank,month);
+      if(!paidDate)return;
+    }
     // 每筆搬移均由 GAS 寫入下一期、刪除本期原行並加註「上期剩餘」。
     for(const row of deferred){
       ccCyclePaymentStatus(bank+' 搬移延後請款 '+(moved+1)+'/'+deferred.length);
@@ -152,15 +164,6 @@ async function ccFinishCycleBill(bank,month){
       throw Error('Sheet 回讀金額與銀行帳單不符，請核對後再操作');
     // 交易回讀核對成功後，最後才確認整期已繳。
     if(!alreadyPaid){
-      let deviceToken=typeof ccStatementDeviceToken==='function'?ccStatementDeviceToken():'';
-      let adminKey='';
-      if(!deviceToken){
-        adminKey=prompt('請輸入 GAS 管理密碼以確認本期繳費：');
-        if(adminKey===null)return;
-        if(!adminKey)throw Error('管理密碼未輸入');
-      }
-      const paidDate=await ccChooseActualPaidDate(bank,month);
-      if(!paidDate)throw Error('未選擇實際繳費日期；交易已同步，但帳單尚未標記繳清');
       const confirmation=await postToApi({action:'updateVerifiedPayment',bank,month,amount,paidDate,
         statementRevision:ccStatementRevision,paymentRevision:ccStatementPaymentRevision,
         ...(deviceToken?{deviceToken}:{adminKey})});
