@@ -71,9 +71,8 @@ function ccCreditCycleMonth(bank, tab){
   const match=String(tab||'').match(/^(\d{2})\/(\d{2})\/(\d{2})$/);
   if(!match)throw Error('有交易缺少可辨識的帳期分頁');
   const cycle=getBankCycle(bank,'20'+match[1]+'-'+match[2]+'-'+match[3]);
-  const due=ccDueDateForClosedCycle(cycle,APP_CONFIG.banks[bank].paymentDueDay);
-  if(!due)throw Error('無法確認帳期繳費月份');
-  return dateToInput(due).slice(0,7);
+  // 雲端核對帳單依結帳月份存放；台新／富邦繳款日落在下個月，不能用繳款月份配對。
+  return dateToInput(cycle.e).slice(0,7);
 }
 function ccCreditCalculate(bank, rows, archive, payments){
   const groups=new Map();
