@@ -13,11 +13,22 @@ function ccEditCreditLimits(){
   const note=document.createElement('p');note.textContent='額度只儲存在目前瀏覽器；換裝置需再設定一次。';form.append(note);
   for(const bank of CC_CREDIT_BANKS){
     const label=document.createElement('label');label.textContent=bank;
-    const input=document.createElement('input');input.type='number';input.name=bank;input.min='1';input.max='1000000000';input.step='1';input.required=true;input.inputMode='numeric';input.value=CC_CREDIT_LIMITS[bank]??'';label.append(input);form.append(label);
+    const input=document.createElement('input');input.type='text';input.name=bank;input.required=true;input.inputMode='numeric';input.autocomplete='off';input.pattern='[0-9,]+';input.value=CC_CREDIT_LIMITS[bank]===null?'':CC_CREDIT_LIMITS[bank].toLocaleString('en-US');
+    input.addEventListener('input',()=>{
+      const digitsBefore=input.value.slice(0,input.selectionStart??input.value.length).replace(/[^0-9]/g,'').length;
+      const digits=input.value.replace(/[^0-9]/g,'').replace(/^0+(?=\\d)/,'');
+      input.value=digits.replace(/\\B(?=(\\d{3})+(?!\\d))/g,',');
+      let caret=0,count=0;
+      while(caret<input.value.length && count<digitsBefore){if(/[0-9]/.test(input.value[caret]))count++;caret++;}
+      input.setSelectionRange(caret,caret);
+      const amount=Number(digits);
+      input.setCustomValidity(digits && (!Number.isInteger(amount)||amount<=0||amount>1000000000)?'請輸入 1～1,000,000,000 的整數額度':'');
+    });
+    label.append(input);form.append(label);
   }
   const cancel=document.createElement('button');cancel.type='button';cancel.textContent='取消';cancel.addEventListener('click',()=>dialog.close());
   const save=document.createElement('button');save.type='submit';save.textContent='儲存額度';form.append(cancel,save);
-  form.addEventListener('submit',event=>{event.preventDefault();const values=Object.fromEntries(CC_CREDIT_BANKS.map(bank=>[bank,Number(form.elements.namedItem(bank).value)]));if(Object.values(values).some(n=>!Number.isInteger(n)||n<=0||n>1000000000))return;try{localStorage.setItem(CC_CREDIT_SETTINGS_KEY,JSON.stringify(values));CC_CREDIT_LIMITS=values;ccRenderCreditLimits();dialog.close();}catch(_){alert('此瀏覽器無法儲存額度，請確認儲存空間與隱私設定。');}});
+  form.addEventListener('submit',event=>{event.preventDefault();const values=Object.fromEntries(CC_CREDIT_BANKS.map(bank=>[bank,Number(form.elements.namedItem(bank).value.replace(/,/g,''))]));if(Object.values(values).some(n=>!Number.isInteger(n)||n<=0||n>1000000000))return;try{localStorage.setItem(CC_CREDIT_SETTINGS_KEY,JSON.stringify(values));CC_CREDIT_LIMITS=values;ccRenderCreditLimits();dialog.close();}catch(_){alert('此瀏覽器無法儲存額度，請確認儲存空間與隱私設定。');}});
   dialog.append(form);dialog.addEventListener('close',()=>dialog.remove());document.body.append(dialog);dialog.showModal();
 }
 let ccCreditRows = null, ccCreditError = '', ccCreditLoading = false, ccCreditEpoch = -1;
