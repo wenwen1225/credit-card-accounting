@@ -133,6 +133,8 @@ function ccCreditCalculate(bank, rows, archive, payments){
   const used=Math.max(0,Math.round((billed+unbilled)*100)/100);
   return {billed,unbilled,used,missing,dueDates:[...dueDates].sort(),available:CC_CREDIT_LIMITS[bank]-used};
 }
+const ccCreditDetailOpen={};
+let ccCreditSyncOpen=false;
 function ccRenderCreditLimits(){
   const root=document.getElementById('creditLimits');if(!root)return;
   const ready=ccCreditVerified && ccCreditRows!==null && ccStatementCloudReady && ccCreditEpoch===ccMutationEpoch;
@@ -142,18 +144,23 @@ function ccRenderCreditLimits(){
   const displayArchive=ready?ccStatementArchive:cached?.archive;
   const displayPayments=ready?ccStatementPayments:cached?.payments;
   const savedTime=ccCreditSnapshot?.savedAt && typeof formatSyncTime==='function'?formatSyncTime(ccCreditSnapshot.savedAt):'';
-  const snapshotNote=ccCreditError?'背景核對未完成，保留上次金額：'+ccCreditError:
-    ccCreditLoading || !ccCreditVerified?'顯示上次核對金額'+(savedTime?'（'+savedTime+'）':'')+'；正在背景確認資料有無變更。':
-    '額度帳務已核對'+(savedTime?'（'+savedTime+'）':'')+'；資料沒有變更時沿用上次結果。';
-  root.innerHTML='<div class="billing-note">'+(ccCreditCloudReady?'額度已從雲端同步；其他裝置可按下方按鈕更新。':esc(ccCreditCloudError||'額度尚未連接雲端；請先部署 GAS v2.7.17。'))+'</div><button type="button" id="ccCreditCloudSync" class="chip" '+(ccCreditCloudBusy?'disabled':'')+'>'+(ccCreditCloudBusy?'同步中…':'同步雲端額度')+'</button><div class="section-label">信用額度</div><div class="cc-credit-grid">'+Object.entries(CC_CREDIT_LIMITS).map(([bank,limit])=>{
+  const syncLabel=ccCreditError?'同步需注意':ccCreditSnapshot?(ready?'已核對':'上次核對')+(savedTime?'・'+savedTime:'')+(ccCreditLoading?'・背景確認中':''):ccCreditLoading?'正在核對額度…':ccCreditCloudReady?'額度已同步':'額度尚未連接雲端';
+  const syncNote=ccCreditError?'背景核對未完成，保留上次金額：'+ccCreditError:ccCreditSnapshot?'先顯示上次核對結果；資料版本有變更時才重新讀取。':'首次核對完成後，重新整理會直接顯示上次金額。';
+  root.innerHTML='<details class="cc-credit-sync" id="ccCreditSyncDetails" '+(ccCreditSyncOpen?'open':'')+'><summary class="'+(ccCreditError?'cc-sync-warning':'')+'">'+esc(syncLabel)+'</summary><div class="cc-credit-sync-body"><p>'+esc(syncNote)+'</p><p>'+esc(ccCreditCloudReady?'額度設定已從雲端同步。':ccCreditCloudError||'啟用雲端同步後，手機與電腦可共用額度設定。')+'</p><button type="button" id="ccCreditCloudSync" class="chip" '+(ccCreditCloudBusy?'disabled':'')+'>'+(ccCreditCloudBusy?'同步中…':'同步雲端額度')+'</button><p>依已記錄的消費、退刷及繳費狀態估算；同銀行卡片共用額度。分期餘額、預授權與入帳時間差，請以銀行 App 為準。</p></div></details><div class="cc-credit-grid">'+Object.entries(CC_CREDIT_LIMITS).map(([bank,limit])=>{
     let result=null,error='';
     if(displayRows){try{result=ccCreditCalculate(bank,displayRows,displayArchive,displayPayments);}catch(e){error=e.message;}}
     const valid=result && !result.missing && limit!==null;
     const percent=valid?Math.min(100,result.used/limit*100):0;
-    return `<div class="billing-card ${bankClass(bank)} cc-credit-card"><div class="billing-head"><strong>${esc(bank)}</strong><span>共用額度 ${limit===null?'尚未設定':moneyText(limit)}</span></div><div class="billing-cycle-label">估算可用額度</div><div class="billing-amount">${valid?moneyText(result.available):'待確認'}</div>${valid?`<progress max="100" value="${percent}" aria-label="${esc(bank)}額度使用比例"></progress><div class="cc-credit-detail"><span>已占用</span><strong>${moneyText(result.used)}</strong><div class="cc-credit-due-row"><span class="cc-credit-due-label">已核對待繳</span><span class="cc-credit-due-dates">${result.dueDates.map(d=>'<time class="cc-credit-due-date" datetime="'+d+'" title="繳費期限：'+d.replace(/-/g,'/')+'" aria-label="繳費期限：'+d.replace(/-/g,'/')+'">'+d.slice(5).replace('-','/')+' 繳</time>').join('')}</span><strong class="${result.billed>0?'cc-credit-due-amount':''}">${moneyText(result.billed)}</strong></div><span>其餘未繳消費（含未出帳）</span><strong>${moneyText(result.unbilled)}</strong></div>${result.available<0?'<div class="billing-warning">記錄金額已超過設定額度，請核對帳務。</div>':''}`:`<div class="billing-note">${esc((limit===null?'請按「設定額度」填入銀行共用額度':error) || (result?.missing?'有未繳交易尚未補齊金額或進度':ccCreditError || (!ccStatementCloudReady?'帳單繳費狀態尚未確認':'正在核對全部年度帳務…')))}</div>`}</div>`;
-  }).join('')+'</div><div class="billing-note">依已記錄的消費、退刷與繳費狀態估算；完成本期繳費後恢復額度。同銀行卡片共用額度。未記錄的分期餘額、預授權或銀行入帳時間差，請以銀行 App 為準。</div>';
-  if(ccCreditSnapshot)root.insertAdjacentHTML('afterbegin','<div class="billing-note">'+esc(snapshotNote)+'</div>');
+    const dates=valid?result.dueDates.map(d=>'<time class="cc-credit-due-date" datetime="'+d+'" title="繳費期限：'+d.replace(/-/g,'/')+'" aria-label="繳費期限：'+d.replace(/-/g,'/')+'">'+d.slice(5).replace('-','/')+' 繳</time>').join(''):'';
+    return '<div class="billing-card '+bankClass(bank)+' cc-credit-card"><div class="cc-credit-main"><div><strong>'+esc(bank)+'</strong><small>估算可用額度</small></div><div class="billing-amount">'+(valid?moneyText(result.available):'待確認')+'</div></div>'+
+      (valid?'<div class="cc-credit-due-row"><span class="cc-credit-due-label">已核對待繳</span><span class="cc-credit-due-dates">'+dates+'</span><strong class="'+(result.billed>0?'cc-credit-due-amount':'')+'">'+moneyText(result.billed)+'</strong></div>'+
+      '<details class="cc-credit-extra" data-credit-bank="'+esc(bank)+'" '+(ccCreditDetailOpen[bank]?'open':'')+'><summary>額度明細</summary><div class="cc-credit-detail"><span>銀行共用額度</span><strong>'+moneyText(limit)+'</strong><span>已占用</span><strong>'+moneyText(result.used)+'</strong><span>其餘未繳消費（含未出帳）</span><strong>'+moneyText(result.unbilled)+'</strong></div><progress max="100" value="'+percent+'" aria-label="'+esc(bank)+'額度使用比例"></progress></details>'+
+      (result.available<0?'<div class="billing-warning">記錄金額已超過設定額度，請核對帳務。</div>':''):
+      '<div class="billing-note">'+esc((limit===null?'請按「管理 → 設定額度」填入銀行共用額度':error) || (result?.missing?'有未繳交易尚未補齊金額或進度':ccCreditError || (!ccStatementCloudReady?'帳單繳費狀態尚未確認':'正在核對全部年度帳務…')))+'</div>')+'</div>';
+  }).join('')+'</div>';
   root.querySelector('#ccCreditCloudSync')?.addEventListener('click',()=>ccCreditCloudSync(true));
+  root.querySelector('#ccCreditSyncDetails')?.addEventListener('toggle',event=>{ccCreditSyncOpen=event.currentTarget.open;});
+  root.querySelectorAll('[data-credit-bank]').forEach(detail=>detail.addEventListener('toggle',()=>{ccCreditDetailOpen[detail.dataset.creditBank]=detail.open;}));
   const queue=typeof ccQueueRead==='function'?ccQueueRead():[];
   if(queue.length)root.insertAdjacentHTML('beforeend','<div class="billing-warning">此裝置另有 '+queue.length+' 筆待同步交易，尚未計入額度。</div>');
 }

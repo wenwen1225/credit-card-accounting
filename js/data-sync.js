@@ -170,12 +170,20 @@ function ccSyncToolbar(message, isError = false){
   setSyncInfo(message, isError);
   const el = document.getElementById('syncInfo');
   if(!el) return;
+  el.innerHTML='';
+  const details=document.createElement('details');details.className='cc-transaction-sync';details.open=isError;
+  const summary=document.createElement('summary');
+  const state=window.ccDataStatus||{};
+  const time=state.savedAt?formatSyncTime(state.savedAt):'';
+  summary.textContent=(isError?'交易同步需注意':['fresh','confirmed-write'].includes(state.kind)?'交易資料已同步':'交易資料快取')+(time?'・'+time:'');
+  const body=document.createElement('div');body.className='cc-transaction-sync-body';
+  const note=document.createElement('p');note.textContent=message;
   const refresh = document.createElement('button');
   refresh.type = 'button';
   refresh.textContent = '從 Sheet 更新資料';
   refresh.className = 'cc-refresh-btn';
   refresh.addEventListener('click', () => loadRecords({force:true}));
-  el.appendChild(refresh);
+  body.append(note,refresh);details.append(summary,body);el.appendChild(details);
 }
 
 loadRecords = async function(options = {}){
