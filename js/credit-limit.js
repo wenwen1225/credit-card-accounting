@@ -16,8 +16,8 @@ function ccEditCreditLimits(){
     const input=document.createElement('input');input.type='text';input.name=bank;input.required=true;input.inputMode='numeric';input.autocomplete='off';input.pattern='[0-9,]+';input.value=CC_CREDIT_LIMITS[bank]===null?'':CC_CREDIT_LIMITS[bank].toLocaleString('en-US');
     input.addEventListener('input',()=>{
       const digitsBefore=input.value.slice(0,input.selectionStart??input.value.length).replace(/[^0-9]/g,'').length;
-      const digits=input.value.replace(/[^0-9]/g,'').replace(/^0+(?=\\d)/,'');
-      input.value=digits.replace(/\\B(?=(\\d{3})+(?!\\d))/g,',');
+      const digits=input.value.replace(/[^0-9]/g,'').replace(/^0+(?=\d)/,'');
+      input.value=digits.replace(/\B(?=(\d{3})+(?!\d))/g,',');
       let caret=0,count=0;
       while(caret<input.value.length && count<digitsBefore){if(/[0-9]/.test(input.value[caret]))count++;caret++;}
       input.setSelectionRange(caret,caret);
