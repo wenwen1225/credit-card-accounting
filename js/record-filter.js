@@ -140,29 +140,7 @@ renderRecords = function(){
         </div>
         <div class="money ${isRefund ? 'refund-money' : ''}">${transactionMoneyText(r)}</div>
         ${r.currency && r.foreign!==null && r.foreign!==undefined && r.foreign!=='' && Number.isFinite(Number(r.foreign)) && Math.abs(Number(r.foreign))>0 ? `<div class="meta">外幣：${esc(r.currency||'未指定')} ${isRefund?'-':''}${esc(ccForeignDisplay(r.currency,Math.abs(Number(r.foreign))))}</div>` : ''}
-        ${isForeignRecord(r)?`<div class="meta">海外手續費：${Number(r.overseasFee)>0?'NT
-        <div class="meta">交易類型：${isRefund?'退刷':'消費'}</div>
-        ${isPending ? '<div class="pending-inline">待補台幣金額</div>' : ''}
-
-        <div class="record-detail hidden" data-record-detail="${r.id}">
-          ${r.bank==='中信' && r.card ? `<div class="meta">卡別：${esc(r.card)}</div>` : ''}
-          <div class="meta">進度：${esc(r.status || '刷')}</div>
-          <div class="meta">進度：${esc(r.status || '刷')}</div>
-        </div>
-
-        <div class="rfoot">
-          <span class="status ${isRefund ? 'refund-status' : ''}">${isPending ? '待補' : (isRefund ? '退刷' : esc(r.status || '刷'))}</span>
-          <div class="actions"><button class="mini detail" data-record-toggle="${r.id}">詳細</button><button class="mini edit" onclick="openEdit(${r.id})">${isPending ? '補金額' : isPendingFee(r) ? '補手續費' : '修改'}</button><button class="mini del" onclick="deleteRec(${r.id})">刪除</button></div>
-        </div>
-      </div>`;
-  }).join('');
-
-  bindRecordExpanders();
-  if(typeof renderBillingOverview === 'function') renderBillingOverview();
-};
-
-if(Array.isArray(records) && records.length) renderRecords();
-+Number(r.overseasFee).toLocaleString('zh-TW'):'尚未補登'}｜含費總額：${transactionMoneyText(r)}</div>`:''}
+        ${isForeignRecord(r)?`<div class="meta">海外手續費：${Number(r.overseasFee)>0?'NT$'+Number(r.overseasFee).toLocaleString('zh-TW'):'尚未補登'}｜含費總額：${transactionMoneyText(r)}</div>`:''}
         ${r.note ? `<div class="meta">備註：${esc(r.note)}</div>` : ''}
         <div class="meta">交易類型：${isRefund?'退刷':'消費'}</div>
         ${isPending ? '<div class="pending-inline">待補台幣金額</div>' : ''}
@@ -170,12 +148,11 @@ if(Array.isArray(records) && records.length) renderRecords();
         <div class="record-detail hidden" data-record-detail="${r.id}">
           ${r.bank==='中信' && r.card ? `<div class="meta">卡別：${esc(r.card)}</div>` : ''}
           <div class="meta">進度：${esc(r.status || '刷')}</div>
-          <div class="meta">進度：${esc(r.status || '刷')}</div>
         </div>
 
         <div class="rfoot">
           <span class="status ${isRefund ? 'refund-status' : ''}">${isPending ? '待補' : (isRefund ? '退刷' : esc(r.status || '刷'))}</span>
-          <div class="actions"><button class="mini detail" data-record-toggle="${r.id}">詳細</button><button class="mini edit" onclick="openEdit(${r.id})">${isPending ? '補金額' : '修改'}</button><button class="mini del" onclick="deleteRec(${r.id})">刪除</button></div>
+          <div class="actions"><button class="mini detail" data-record-toggle="${r.id}">詳細</button><button class="mini edit" onclick="openEdit(${r.id})">${isPending ? '補金額' : isPendingFee(r) ? '補手續費' : '修改'}</button><button class="mini del" onclick="deleteRec(${r.id})">刪除</button></div>
         </div>
       </div>`;
   }).join('');
