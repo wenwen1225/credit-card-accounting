@@ -7,6 +7,8 @@ const currencyTabs = document.getElementById('currencyTabs');
 const recordStateTabs = document.getElementById('recordStateTabs');
 const typeTabs = document.getElementById('typeTabs');
 const pendingCountBadge = document.getElementById('pendingCountBadge');
+const feeCountBadge = document.getElementById('feeCountBadge');
+function isPendingFee(r){return isForeignRecord(r)&&recordTransactionType(r)!=='refund'&&!(Number(r.overseasFee)>0);}
 const clearFiltersBtn = document.getElementById('clearFiltersBtn');
 
 recordStateTabs?.querySelectorAll('.chip').forEach(btn => {
@@ -76,6 +78,8 @@ function updatePendingCount(){
   pendingCountBadge.classList.toggle('hidden', count === 0);
   const pendingTab=recordStateTabs?.querySelector('[data-state="pending"]');
   if(pendingTab)pendingTab.classList.toggle('hidden',count===0);
+  const feeCount=contextList.filter(isPendingFee).length;
+  if(feeCountBadge){feeCountBadge.textContent=String(feeCount);feeCountBadge.classList.toggle('hidden',feeCount===0);}
   if(count===0 && recordStateFilter==='pending'){
     recordStateFilter='all';
     recordStateTabs?.querySelectorAll('.chip').forEach(btn=>btn.classList.toggle('active',btn.dataset.state==='all'));
@@ -110,6 +114,7 @@ renderRecords = function(){
   if(transactionTypeFilter !== 'all') list = list.filter(r => recordTransactionType(r) === transactionTypeFilter);
   list = list.filter(matchesRecordCurrency);
   if(recordStateFilter === 'pending') list = list.filter(isPendingAmount);
+  if(recordStateFilter === 'fee') list = list.filter(isPendingFee);
   if(q) list = list.filter(r => (`${r.item} ${r.note} ${r.card} ${recordTransactionType(r) === 'refund' ? '退刷 退款' : '消費'}`).toLowerCase().includes(q));
 
   countVal.textContent = list.length;
@@ -118,7 +123,7 @@ renderRecords = function(){
 
   if(!list.length){
     const typeText = transactionTypeFilter === 'refund' ? '退刷' : transactionTypeFilter === 'purchase' ? '消費' : '';
-    const emptyText = recordStateFilter === 'pending' ? `這個月份目前沒有${typeText ? typeText + '且' : ''}待補金額` : `這個條件下沒有${typeText || ''}紀錄`;
+    const emptyText = recordStateFilter === 'fee' ? '這個月份沒有待補海外手續費的外幣消費' : recordStateFilter === 'pending' ? `這個月份目前沒有${typeText ? typeText + '且' : ''}待補金額` : `這個條件下沒有${typeText || ''}紀錄`;
     recordList.innerHTML=`<div class="empty">${emptyText}<br><small>目前月份：${esc(currentMonth || '無')}</small></div>`;
     if(typeof renderBillingOverview === 'function') renderBillingOverview();
     return;
@@ -135,6 +140,29 @@ renderRecords = function(){
         </div>
         <div class="money ${isRefund ? 'refund-money' : ''}">${transactionMoneyText(r)}</div>
         ${r.currency && r.foreign!==null && r.foreign!==undefined && r.foreign!=='' && Number.isFinite(Number(r.foreign)) && Math.abs(Number(r.foreign))>0 ? `<div class="meta">外幣：${esc(r.currency||'未指定')} ${isRefund?'-':''}${esc(ccForeignDisplay(r.currency,Math.abs(Number(r.foreign))))}</div>` : ''}
+        ${isForeignRecord(r)?`<div class="meta">海外手續費：${Number(r.overseasFee)>0?'NT
+        <div class="meta">交易類型：${isRefund?'退刷':'消費'}</div>
+        ${isPending ? '<div class="pending-inline">待補台幣金額</div>' : ''}
+
+        <div class="record-detail hidden" data-record-detail="${r.id}">
+          ${r.bank==='中信' && r.card ? `<div class="meta">卡別：${esc(r.card)}</div>` : ''}
+          <div class="meta">進度：${esc(r.status || '刷')}</div>
+          <div class="meta">進度：${esc(r.status || '刷')}</div>
+        </div>
+
+        <div class="rfoot">
+          <span class="status ${isRefund ? 'refund-status' : ''}">${isPending ? '待補' : (isRefund ? '退刷' : esc(r.status || '刷'))}</span>
+          <div class="actions"><button class="mini detail" data-record-toggle="${r.id}">詳細</button><button class="mini edit" onclick="openEdit(${r.id})">${isPending ? '補金額' : isPendingFee(r) ? '補手續費' : '修改'}</button><button class="mini del" onclick="deleteRec(${r.id})">刪除</button></div>
+        </div>
+      </div>`;
+  }).join('');
+
+  bindRecordExpanders();
+  if(typeof renderBillingOverview === 'function') renderBillingOverview();
+};
+
+if(Array.isArray(records) && records.length) renderRecords();
++Number(r.overseasFee).toLocaleString('zh-TW'):'尚未補登'}｜含費總額：${transactionMoneyText(r)}</div>`:''}
         ${r.note ? `<div class="meta">備註：${esc(r.note)}</div>` : ''}
         <div class="meta">交易類型：${isRefund?'退刷':'消費'}</div>
         ${isPending ? '<div class="pending-inline">待補台幣金額</div>' : ''}
