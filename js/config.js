@@ -44,3 +44,33 @@ function ccReminderEligible(cfg,now){
   const start=new Date(due);start.setDate(start.getDate()-4);
   return dateToInput(now)>=dateToInput(start) && (!cfg.firstPaymentDueDate || dateToInput(due)>=cfg.firstPaymentDueDate);
 }
+
+// 海外手續費補登起始帳期：舊帳期不補，已繳帳單不開放補登。
+// 使用交易日所屬的帳期，不以交易月份或繳費月份判斷。
+const CC_FEE_FIRST_CYCLES = Object.freeze({
+  '中信': {start:'2026-10-06',end:'2026-11-05',due:'2026-11-23'},
+  '國泰': {start:'2026-10-09',end:'2026-11-08',due:'2026-11-24'},
+  '台新': {start:'2026-10-21',end:'2026-11-20',due:'2026-12-05'},
+  '富邦': {start:'2026-10-02',end:'2026-10-22',due:'2026-11-07'}
+});
+function ccFeeCycleEligible(bank,date){
+  const first=CC_FEE_FIRST_CYCLES[bank];
+  const d=String(date||'').slice(0,10);
+  if(!first||!/^\\d{4}-\\d{2}-\\d{2}$/.test(d))return false;
+  // 只允許指定起始帳期及後續帳期；更早的交易不開放補登。
+  return d>=first.start;
+}
+function ccFeeCanEdit(record){
+  if(!record||!ccFeeCycleEligible(record.bank,record.date))return false;
+  if(record.transactionType==='refund'||record.status==='繳')return false;
+  if(typeof ccPaidArchive!=='undefined' && ccPaidArchive){
+    try{
+      const c=getBankCycle(record.bank,record.date);
+      const due=ccDueDateForClosedCycle(c,APP_CONFIG.banks[record.bank].paymentDueDay);
+      const key=due?dateToInput(due).slice(0,7):'';
+      const paid=ccPaidArchive?.[key]?.[record.bank];
+      if(paid?.paid===true)return false;
+    }catch(_e){}
+  }
+  return true;
+}
