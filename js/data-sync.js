@@ -24,6 +24,7 @@ function mapApiRecords(apiRecords){
     date: normalizeClientDate(r.date || ''),
     item: r.item || '',
     twd: r.twd === '' || r.twd === undefined ? null : r.twd,
+    overseasFee: Number(r.overseasFee)||0,
     currency: r.foreignCurrency || '',
     foreign: r.foreignAmount === '' || r.foreignAmount === undefined ? null : r.foreignAmount,
     status: r.status || '',
