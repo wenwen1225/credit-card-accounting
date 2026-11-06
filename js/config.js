@@ -56,7 +56,7 @@ const CC_FEE_FIRST_CYCLES = Object.freeze({
 function ccFeeCycleEligible(bank,date){
   const first=CC_FEE_FIRST_CYCLES[bank];
   const d=String(date||'').slice(0,10);
-  if(!first||!/^\\d{4}-\\d{2}-\\d{2}$/.test(d))return false;
+  if(!first||!/^\d{4}-\d{2}-\d{2}$/.test(d))return false;
   // 只允許指定起始帳期及後續帳期；更早的交易不開放補登。
   return d>=first.start;
 }
