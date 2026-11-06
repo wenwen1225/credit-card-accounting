@@ -768,3 +768,34 @@ textarea{min-height:78px;resize:vertical}
 #syncInfo:has(.cc-transaction-sync){padding:8px 12px!important;margin-bottom:12px!important}
 @media(min-width:900px){.cc-billing-fold #billingOverview{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}}
 @media(max-width:360px){.cc-credit-card{padding:12px}.cc-credit-main{gap:6px}.cc-credit-card .cc-credit-main .billing-amount{font-size:22px}.cc-billing-fold>summary span{display:block;margin:4px 0 0 16px}}
+
+/* Desktop record filters v5.72: independent sidebar scrolling and reliable controls. */
+@media (min-width:1100px){
+  #recordsPage .cc-record-workspace{align-items:start;}
+  #recordsPage .cc-record-filters{
+    position:sticky;
+    top:104px;
+    max-height:calc(100dvh - 120px);
+    overflow-y:auto;
+    overflow-x:hidden;
+    overscroll-behavior:contain;
+    -webkit-overflow-scrolling:touch;
+    z-index:3;
+    scrollbar-width:thin;
+  }
+  #recordsPage .cc-record-filters .tabs{
+    max-height:none;
+    overflow:visible;
+    flex-wrap:wrap;
+  }
+  #recordsPage .cc-record-filters .chip,
+  #recordsPage .cc-record-filters .clear-filter-btn{
+    position:relative;
+    z-index:1;
+    pointer-events:auto;
+    cursor:pointer;
+  }
+}
+@media (min-width:1100px) and (max-height:540px){
+  #recordsPage .cc-record-filters{top:16px;max-height:calc(100dvh - 32px);}
+}
