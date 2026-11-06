@@ -16,6 +16,8 @@ const foreignToggle = document.getElementById('foreignToggle');
 const foreignFields = document.getElementById('foreignFields');
 const currencySel = document.getElementById('currencySel');
 const foreignInp = document.getElementById('foreignInp');
+const overseasFeeInp = document.getElementById('overseasFeeInp');
+const addFeeField = document.getElementById('addFeeField');
 const noteInp = document.getElementById('noteInp');
 const saveBtn = document.getElementById('saveBtn');
 const reminders = document.getElementById('reminders');
@@ -41,6 +43,9 @@ const editItem = document.getElementById('editItem');
 const editTwd = document.getElementById('editTwd');
 const editCurrency = document.getElementById('editCurrency');
 const editForeign = document.getElementById('editForeign');
+const editOverseasFee = document.getElementById('editOverseasFee');
+const editFeeField = document.getElementById('editFeeField');
+function ccFeeInputValue(input){const raw=ccMoneyRaw(input.value);if(!raw)return 0;const n=Number(raw);if(!Number.isFinite(n)||n<0)throw new Error('海外手續費必須是 0 或正數');return n;}
 const editNote = document.getElementById('editNote');
 const modalDelete = document.getElementById('modalDelete');
 const modalSave = document.getElementById('modalSave');
@@ -88,7 +93,7 @@ function ccSetForeignSymbol(sel,prefixId){
 }
 [twdInp,foreignInp,editTwd,editForeign].forEach(ccBindMoneyInput);
 currencySel.addEventListener('change',()=>ccSetForeignSymbol(currencySel,'foreignSymbol'));
-editCurrency.addEventListener('change',()=>ccSetForeignSymbol(editCurrency,'editForeignSymbol'));
+editCurrency.addEventListener('change',()=>{ccSetForeignSymbol(editCurrency,'editForeignSymbol');editFeeField.classList.toggle('hidden',!editCurrency.value);if(!editCurrency.value)editOverseasFee.value='';});
 ccSetForeignSymbol(currencySel,'foreignSymbol');
 ccSetForeignSymbol(editCurrency,'editForeignSymbol');
 
@@ -215,6 +220,8 @@ dateInp.addEventListener('change', updateCycle);
 foreignLine.addEventListener('click', () => {
   foreignToggle.classList.toggle('on');
   foreignFields.classList.toggle('hidden', !foreignToggle.classList.contains('on'));
+  addFeeField.classList.toggle('hidden', !foreignToggle.classList.contains('on'));
+  if(!foreignToggle.classList.contains('on'))overseasFeeInp.value='';
 });
 saveBtn.addEventListener('click', async () => {
   const isForeign = foreignToggle.classList.contains('on');
@@ -228,6 +235,8 @@ saveBtn.addEventListener('click', async () => {
   if((twdText && Number(twdText) < 0) || (foreignText && Number(foreignText) < 0)){
     alert('請輸入正數；退刷會由系統自動扣除'); return;
   }
+  let fee=0;
+  try{fee=isForeign?ccFeeInputValue(overseasFeeInp):0;}catch(err){alert(err.message);overseasFeeInp.focus();return;}
   const transactionType = document.getElementById('transactionTypeSel')?.value || 'purchase';
   const payload = {
     action:'createRecord',
@@ -240,6 +249,7 @@ saveBtn.addEventListener('click', async () => {
       twd:twdText ? Number(twdText) : null,
       foreignCurrency:isForeign ? currencySel.value : '',
       foreignAmount:foreignText ? Number(foreignText) : null,
+      overseasFee:fee,
       note:noteInp.value.trim(),
       transactionType
     }
@@ -252,6 +262,7 @@ saveBtn.addEventListener('click', async () => {
     itemInp.value = '';
     twdInp.value = '';
     foreignInp.value = '';
+    overseasFeeInp.value = '';
     noteInp.value = '';
     if(typeof updateTransactionTypeUi === 'function') updateTransactionTypeUi();
   }catch(err){
@@ -332,7 +343,7 @@ function renderPending(){
 
 function openEdit(id){
   const r=records.find(x=>x.id===id); if(!r) return;
-  editId.value=r.id; editBank.value=r.bank; if(r.bank==='中信' && r.card && !Array.from(editCard.options).some(o=>o.value===r.card)){const option=new Option(r.card,r.card);editCard.add(option);} editCard.value=r.bank==='中信'?(r.card||APP_CONFIG.banks['中信'].cards[0]):APP_CONFIG.banks['中信'].cards[0]; ccUpdateEditCardVisibility(); editDate.value=r.date; editStatus.value=r.status||'刷'; editItem.value=r.item; editTwd.value=r.twd==null?'':ccMoneyPretty(r.twd); editCurrency.value=Number(r.foreign)>0?(r.currency||''):''; editForeign.value=Number(r.foreign)>0?ccMoneyPretty(r.foreign):''; ccSetForeignSymbol(editCurrency,'editForeignSymbol'); editNote.value=r.note||''; editModal.classList.add('show');
+  editId.value=r.id; editBank.value=r.bank; if(r.bank==='中信' && r.card && !Array.from(editCard.options).some(o=>o.value===r.card)){const option=new Option(r.card,r.card);editCard.add(option);} editCard.value=r.bank==='中信'?(r.card||APP_CONFIG.banks['中信'].cards[0]):APP_CONFIG.banks['中信'].cards[0]; ccUpdateEditCardVisibility(); editDate.value=r.date; editStatus.value=r.status||'刷'; editItem.value=r.item; editTwd.value=r.twd==null?'':ccMoneyPretty(Math.max(0,Math.abs(Number(r.twd))-(Number(r.overseasFee)||0))); editCurrency.value=Number(r.foreign)>0?(r.currency||''):''; editForeign.value=Number(r.foreign)>0?ccMoneyPretty(r.foreign):''; ccSetForeignSymbol(editCurrency,'editForeignSymbol'); editFeeField.classList.toggle('hidden',!(Number(r.foreign)>0)); editOverseasFee.value=Number(r.overseasFee)>0?ccMoneyPretty(r.overseasFee):''; editNote.value=r.note||''; editModal.classList.add('show');
 }
 closeEdit.addEventListener('click',()=>editModal.classList.remove('show'));
 editModal.addEventListener('click',e=>{ if(e.target===editModal) editModal.classList.remove('show'); });
@@ -343,7 +354,8 @@ modalSave.addEventListener('click', async()=>{
   const editForeignText=ccMoneyRaw(editForeign.value);
   if(Boolean(editCurrency.value)!==Boolean(editForeignText)){alert('幣別與外幣金額必須同時填寫，或同時留空');return;}
   if(editForeignText && (!Number.isFinite(Number(editForeignText)) || Number(editForeignText)<=0)){alert('請輸入大於 0 的外幣金額');editForeign.focus();return;}
-  const updated={...r,bank:editBank.value,card:editBank.value==='中信'?editCard.value:'',date:editDate.value,status:editStatus.value,item:editItem.value.trim(),twd:ccMoneyValid(editTwd.value)?ccMoneyNumber(editTwd.value):null,currency:editCurrency.value,foreign:editForeignText?Number(editForeignText):null,note:editNote.value.trim(),foreignAmount:editForeignText?Number(editForeignText):null};
+  let fee=0;try{fee=editForeignText?ccFeeInputValue(editOverseasFee):0;}catch(err){alert(err.message);editOverseasFee.focus();return;}
+  const updated={...r,overseasFee:fee,bank:editBank.value,card:editBank.value==='中信'?editCard.value:'',date:editDate.value,status:editStatus.value,item:editItem.value.trim(),twd:ccMoneyValid(editTwd.value)?ccMoneyNumber(editTwd.value):null,currency:editCurrency.value,foreign:editForeignText?Number(editForeignText):null,note:editNote.value.trim(),foreignAmount:editForeignText?Number(editForeignText):null};
   if(!r.source?.rowHash){alert('來源資訊尚未更新，請先從 Sheet 更新資料再修改。');return;}
   try{ modalSave.disabled=true; modalSave.textContent='儲存中…'; const response=await postToApi({action:'updateRecord',record:updated}); if(!response.record?.source?.rowHash)throw Error('GAS 未回傳來源驗證資料'); const fresh=mapApiRecords([response.record])[0]; if(typeof ccMarkLocalMutation==='function')ccMarkLocalMutation(); records=records.map(x=>x.id===id?{...fresh,id}:x); if(typeof ccConfirmedWrites!=='undefined' && typeof ccSourceKey==='function'){const key=ccSourceKey(fresh.source);if(ccConfirmedWrites.has(key))ccConfirmedWrites.set(key,{...fresh,id});} saveRecordsCache(Number(window.ccSelectedDataYear||new Date().getFullYear()),''); editModal.classList.remove('show'); renderCurrentRecords('修改成功，已同步 Google Sheet'); alert('修改成功！'); }
   catch(err){ alert('修改失敗：'+err.message); }
