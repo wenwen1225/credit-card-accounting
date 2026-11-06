@@ -93,7 +93,7 @@ function ccSetForeignSymbol(sel,prefixId){
 }
 [twdInp,foreignInp,editTwd,editForeign].forEach(ccBindMoneyInput);
 currencySel.addEventListener('change',()=>ccSetForeignSymbol(currencySel,'foreignSymbol'));
-editCurrency.addEventListener('change',()=>{ccSetForeignSymbol(editCurrency,'editForeignSymbol');editFeeField.classList.toggle('hidden',!editCurrency.value);if(!editCurrency.value)editOverseasFee.value='';});
+editCurrency.addEventListener('change',()=>{ccSetForeignSymbol(editCurrency,'editForeignSymbol');const original=records.find(x=>x.id===Number(editId.value));editFeeField.classList.toggle('hidden',!editCurrency.value||!ccFeeCanEdit(original)||!ccFeeCycleEligible(editBank.value,editDate.value));if(!editCurrency.value)editOverseasFee.value='';});
 ccSetForeignSymbol(currencySel,'foreignSymbol');
 ccSetForeignSymbol(editCurrency,'editForeignSymbol');
 
@@ -215,12 +215,13 @@ async function postToApi(payload){
   return data;
 }
 
-bankSel.addEventListener('change', updateCycle);
-dateInp.addEventListener('change', updateCycle);
+bankSel.addEventListener('change', ()=>{updateCycle();ccRefreshAddFeeVisibility();});
+dateInp.addEventListener('change', ()=>{updateCycle();ccRefreshAddFeeVisibility();});
+function ccRefreshAddFeeVisibility(){const ok=foreignToggle.classList.contains('on')&&ccFeeCycleEligible(bankSel.value,dateInp.value);addFeeField.classList.toggle('hidden',!ok);if(!ok)overseasFeeInp.value='';}
 foreignLine.addEventListener('click', () => {
   foreignToggle.classList.toggle('on');
   foreignFields.classList.toggle('hidden', !foreignToggle.classList.contains('on'));
-  addFeeField.classList.toggle('hidden', !foreignToggle.classList.contains('on'));
+  addFeeField.classList.toggle('hidden', !foreignToggle.classList.contains('on') || !ccFeeCycleEligible(bankSel.value,dateInp.value));
   if(!foreignToggle.classList.contains('on'))overseasFeeInp.value='';
 });
 saveBtn.addEventListener('click', async () => {
@@ -236,7 +237,7 @@ saveBtn.addEventListener('click', async () => {
     alert('請輸入正數；退刷會由系統自動扣除'); return;
   }
   let fee=0;
-  try{fee=isForeign?ccFeeInputValue(overseasFeeInp):0;}catch(err){alert(err.message);overseasFeeInp.focus();return;}
+  try{fee=isForeign&&ccFeeCycleEligible(bankSel.value,dateInp.value)?ccFeeInputValue(overseasFeeInp):0;}catch(err){alert(err.message);overseasFeeInp.focus();return;}
   const transactionType = document.getElementById('transactionTypeSel')?.value || 'purchase';
   const payload = {
     action:'createRecord',
@@ -343,7 +344,7 @@ function renderPending(){
 
 function openEdit(id){
   const r=records.find(x=>x.id===id); if(!r) return;
-  editId.value=r.id; editBank.value=r.bank; if(r.bank==='中信' && r.card && !Array.from(editCard.options).some(o=>o.value===r.card)){const option=new Option(r.card,r.card);editCard.add(option);} editCard.value=r.bank==='中信'?(r.card||APP_CONFIG.banks['中信'].cards[0]):APP_CONFIG.banks['中信'].cards[0]; ccUpdateEditCardVisibility(); editDate.value=r.date; editStatus.value=r.status||'刷'; editItem.value=r.item; editTwd.value=r.twd==null?'':ccMoneyPretty(Math.max(0,Math.abs(Number(r.twd))-(Number(r.overseasFee)||0))); editCurrency.value=Number(r.foreign)>0?(r.currency||''):''; editForeign.value=Number(r.foreign)>0?ccMoneyPretty(r.foreign):''; ccSetForeignSymbol(editCurrency,'editForeignSymbol'); editFeeField.classList.toggle('hidden',!(Number(r.foreign)>0)); editOverseasFee.value=Number(r.overseasFee)>0?ccMoneyPretty(r.overseasFee):''; editNote.value=r.note||''; editModal.classList.add('show');
+  editId.value=r.id; editBank.value=r.bank; if(r.bank==='中信' && r.card && !Array.from(editCard.options).some(o=>o.value===r.card)){const option=new Option(r.card,r.card);editCard.add(option);} editCard.value=r.bank==='中信'?(r.card||APP_CONFIG.banks['中信'].cards[0]):APP_CONFIG.banks['中信'].cards[0]; ccUpdateEditCardVisibility(); editDate.value=r.date; editStatus.value=r.status||'刷'; editItem.value=r.item; editTwd.value=r.twd==null?'':ccMoneyPretty(Math.max(0,Math.abs(Number(r.twd))-(ccFeeCanEdit(r)?(Number(r.overseasFee)||0):0))); editCurrency.value=Number(r.foreign)>0?(r.currency||''):''; editForeign.value=Number(r.foreign)>0?ccMoneyPretty(r.foreign):''; ccSetForeignSymbol(editCurrency,'editForeignSymbol'); editFeeField.classList.toggle('hidden',!(Number(r.foreign)>0)||!ccFeeCanEdit(r)); editOverseasFee.value=Number(r.overseasFee)>0?ccMoneyPretty(r.overseasFee):''; editNote.value=r.note||''; editModal.classList.add('show');
 }
 closeEdit.addEventListener('click',()=>editModal.classList.remove('show'));
 editModal.addEventListener('click',e=>{ if(e.target===editModal) editModal.classList.remove('show'); });
@@ -354,7 +355,8 @@ modalSave.addEventListener('click', async()=>{
   const editForeignText=ccMoneyRaw(editForeign.value);
   if(Boolean(editCurrency.value)!==Boolean(editForeignText)){alert('幣別與外幣金額必須同時填寫，或同時留空');return;}
   if(editForeignText && (!Number.isFinite(Number(editForeignText)) || Number(editForeignText)<=0)){alert('請輸入大於 0 的外幣金額');editForeign.focus();return;}
-  let fee=0;try{fee=editForeignText?ccFeeInputValue(editOverseasFee):0;}catch(err){alert(err.message);editOverseasFee.focus();return;}
+  const canEditFee=ccFeeCanEdit(r)&&ccFeeCycleEligible(editBank.value,editDate.value);
+  let fee=Number(r.overseasFee)||0;try{if(canEditFee&&editForeignText)fee=ccFeeInputValue(editOverseasFee);else if(canEditFee&&!editForeignText)fee=0;}catch(err){alert(err.message);editOverseasFee.focus();return;}
   const updated={...r,overseasFee:fee,bank:editBank.value,card:editBank.value==='中信'?editCard.value:'',date:editDate.value,status:editStatus.value,item:editItem.value.trim(),twd:ccMoneyValid(editTwd.value)?ccMoneyNumber(editTwd.value):null,currency:editCurrency.value,foreign:editForeignText?Number(editForeignText):null,note:editNote.value.trim(),foreignAmount:editForeignText?Number(editForeignText):null};
   if(!r.source?.rowHash){alert('來源資訊尚未更新，請先從 Sheet 更新資料再修改。');return;}
   try{ modalSave.disabled=true; modalSave.textContent='儲存中…'; const response=await postToApi({action:'updateRecord',record:updated}); if(!response.record?.source?.rowHash)throw Error('GAS 未回傳來源驗證資料'); const fresh=mapApiRecords([response.record])[0]; if(typeof ccMarkLocalMutation==='function')ccMarkLocalMutation(); records=records.map(x=>x.id===id?{...fresh,id}:x); if(typeof ccConfirmedWrites!=='undefined' && typeof ccSourceKey==='function'){const key=ccSourceKey(fresh.source);if(ccConfirmedWrites.has(key))ccConfirmedWrites.set(key,{...fresh,id});} saveRecordsCache(Number(window.ccSelectedDataYear||new Date().getFullYear()),''); editModal.classList.remove('show'); renderCurrentRecords('修改成功，已同步 Google Sheet'); alert('修改成功！'); }
