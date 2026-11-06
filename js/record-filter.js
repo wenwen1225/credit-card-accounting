@@ -78,7 +78,7 @@ function updatePendingCount(){
   pendingCountBadge.classList.toggle('hidden', count === 0);
   const pendingTab=recordStateTabs?.querySelector('[data-state="pending"]');
   if(pendingTab)pendingTab.classList.toggle('hidden',count===0);
-  const feeCount=records.filter(r=>(bankFilter==='全部'||r.bank===bankFilter) && (transactionTypeFilter==='all'||recordTransactionType(r)===transactionTypeFilter) && matchesRecordCurrency(r) && isPendingFee(r)).length;
+  const feeCount=contextList.filter(isPendingFee).length;
   if(feeCountBadge){feeCountBadge.textContent=String(feeCount);feeCountBadge.classList.toggle('hidden',feeCount===0);}
   if(count===0 && recordStateFilter==='pending'){
     recordStateFilter='all';
@@ -110,7 +110,8 @@ renderRecords = function(){
   }
 
   const q = searchInp.value.trim().toLowerCase();
-  let list = records.filter(r => (recordStateFilter === 'fee' || monthKey(r.date) === currentMonth) && (bankFilter === '全部' || r.bank === bankFilter));
+  // 紀錄頁一律以刷卡日期月份篩選；帳期僅決定海外手續費是否可補登。
+  let list = records.filter(r => monthKey(r.date) === currentMonth && (bankFilter === '全部' || r.bank === bankFilter));
   if(transactionTypeFilter !== 'all') list = list.filter(r => recordTransactionType(r) === transactionTypeFilter);
   list = list.filter(matchesRecordCurrency);
   if(recordStateFilter === 'pending') list = list.filter(isPendingAmount);
@@ -123,7 +124,7 @@ renderRecords = function(){
 
   if(!list.length){
     const typeText = transactionTypeFilter === 'refund' ? '退刷' : transactionTypeFilter === 'purchase' ? '消費' : '';
-    const emptyText = recordStateFilter === 'fee' ? '目前沒有符合帳期的待補海外手續費外幣消費' : recordStateFilter === 'pending' ? `這個月份目前沒有${typeText ? typeText + '且' : ''}待補金額` : `這個條件下沒有${typeText || ''}紀錄`;
+    const emptyText = recordStateFilter === 'fee' ? '這個刷卡月份沒有符合帳期的待補海外手續費消費' : recordStateFilter === 'pending' ? `這個月份目前沒有${typeText ? typeText + '且' : ''}待補金額` : `這個條件下沒有${typeText || ''}紀錄`;
     recordList.innerHTML=`<div class="empty">${emptyText}<br><small>目前月份：${esc(currentMonth || '無')}</small></div>`;
     if(typeof renderBillingOverview === 'function') renderBillingOverview();
     return;
