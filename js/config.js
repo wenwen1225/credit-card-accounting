@@ -1,8 +1,8 @@
 const APP_CONFIG = {
   apiUrl: '/api/gas',
   version: {
-    frontend: '2026.11.04-v5.69',
-    expectedBackend: '2.8.2'
+    frontend: '2026.11.06-v5.70',
+    expectedBackend: '2.8.3'
   },
   storage: {
     paidKey: 'cc_demo_paid_v1',
