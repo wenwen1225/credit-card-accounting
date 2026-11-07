@@ -142,7 +142,7 @@ renderRecords = function(){
         <div class="money ${isRefund ? 'refund-money' : ''}">${transactionMoneyText(r)}</div>
         ${isForeignRecord(r) && Number.isFinite(Number(r.twd)) && Math.abs(Number(r.twd))>0 ? `<div class="meta">原刷金額（未含手續費）：${isRefund?'-':''}NT${Math.max(0,Math.abs(Number(r.twd))-Math.max(0,Number(r.overseasFee)||0)).toLocaleString('zh-TW')}</div>` : ''}
         ${r.currency && r.foreign!==null && r.foreign!==undefined && r.foreign!=='' && Number.isFinite(Number(r.foreign)) && Math.abs(Number(r.foreign))>0 ? `<div class="meta">外幣：${esc(r.currency||'未指定')} ${isRefund?'-':''}${esc(ccForeignDisplay(r.currency,Math.abs(Number(r.foreign))))}</div>` : ''}
-        ${isForeignRecord(r)&&ccFeeCycleEligible(r.bank,r.date)?`<div class="meta">海外手續費：${Number(r.overseasFee)>0?'NT
+        ${isForeignRecord(r)&&ccFeeCycleEligible(r.bank,r.date)?`<div class="meta">海外手續費：${Number(r.overseasFee)>0?'NT$'+Number(r.overseasFee).toLocaleString('zh-TW'):'待補登'}｜含手續費總額顯示於上方</div>`:''}
         ${r.note ? `<div class="meta">備註：${esc(r.note)}</div>` : ''}
         <div class="meta">交易類型：${isRefund?'退刷':'消費'}</div>
         ${isPending ? '<div class="pending-inline">待補台幣金額</div>' : ''}
