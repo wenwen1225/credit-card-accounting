@@ -164,25 +164,3 @@ renderRecords = function(){
 };
 
 if(Array.isArray(records) && records.length) renderRecords();
-+Number(r.overseasFee).toLocaleString('zh-TW'):'待補登'}｜大字為含手續費總額</div>`:''}
-        ${r.note ? `<div class="meta">備註：${esc(r.note)}</div>` : ''}
-        <div class="meta">交易類型：${isRefund?'退刷':'消費'}</div>
-        ${isPending ? '<div class="pending-inline">待補台幣金額</div>' : ''}
-
-        <div class="record-detail hidden" data-record-detail="${r.id}">
-          ${r.bank==='中信' && r.card ? `<div class="meta">卡別：${esc(r.card)}</div>` : ''}
-          <div class="meta">進度：${esc(r.status || '刷')}</div>
-        </div>
-
-        <div class="rfoot">
-          <span class="status ${isRefund ? 'refund-status' : ''}">${isPending ? '待補' : (isRefund ? '退刷' : esc(r.status || '刷'))}</span>
-          <div class="actions"><button class="mini detail" data-record-toggle="${r.id}">詳細</button><button class="mini edit" onclick="openEdit(${r.id})">${isPending ? '補金額' : isPendingFee(r) ? '補登手續費' : '修改'}</button><button class="mini del" onclick="deleteRec(${r.id})">刪除</button></div>
-        </div>
-      </div>`;
-  }).join('');
-
-  bindRecordExpanders();
-  if(typeof renderBillingOverview === 'function') renderBillingOverview();
-};
-
-if(Array.isArray(records) && records.length) renderRecords();
