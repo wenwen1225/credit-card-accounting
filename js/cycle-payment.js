@@ -47,7 +47,7 @@ function ccCyclePaymentStatus(message){
 }
 const CC_DEFER_NOTE=/(?:^|[｜\s])下期(?:$|[｜\s])|延至下期|延下期/;
 function ccBillAmount(rows){
-  return rows.reduce((n,r)=>n+(r.transactionType==='refund'?-Math.abs(Number(r.twd)):Number(r.twd)),0);
+  return rows.reduce((n,r)=>n+(['refund','points_offset'].includes(r.transactionType)?-Math.abs(Number(r.twd)):Number(r.twd)),0);
 }
 async function ccMarkCyclePaid(bank,y,m){
   const cycle=ccPayableCycle(bank,y,m);
