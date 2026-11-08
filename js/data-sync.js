@@ -11,6 +11,7 @@ function ccSetDataStatus(kind,savedAt){
 
 function normalizeTransactionType(record){
   const raw = String(record?.transactionType || record?.type || '').toLowerCase();
+  if(['points_offset','抵扣點數','點數抵扣'].includes(raw)) return 'points_offset';
   if(['refund','退刷','退款'].includes(raw)) return 'refund';
   if(Number(record?.twd) < 0) return 'refund';
   return 'purchase';
@@ -42,7 +43,7 @@ function readRecordsCache(year){
     if(Number(cache.year) !== Number(year) || !Array.isArray(cache.records)) return null;
     cache.records = cache.records.map(r => ({
       ...r,
-      transactionType: r.transactionType || (Number(r.twd) < 0 ? 'refund' : 'purchase')
+      transactionType: normalizeTransactionType(r)
     }));
     return cache;
   }catch(_){
