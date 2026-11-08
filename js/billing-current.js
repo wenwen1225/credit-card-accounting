@@ -184,7 +184,7 @@ function activeCycleForBank(startDay, today, bank){
 function sumTwd(list){
   return list.reduce((sum, r) => {
     const amount=Number(r.twd)||0;
-    return sum + (r.transactionType==='refund' ? -Math.abs(amount) : amount);
+    return sum + (['refund','points_offset'].includes(r.transactionType) ? -Math.abs(amount) : amount);
   },0);
 }
 
