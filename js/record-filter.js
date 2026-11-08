@@ -116,14 +116,14 @@ renderRecords = function(){
   list = list.filter(matchesRecordCurrency);
   if(recordStateFilter === 'pending') list = list.filter(isPendingAmount);
   if(recordStateFilter === 'fee') list = list.filter(isPendingFee);
-  if(q) list = list.filter(r => (`${r.item} ${r.note} ${r.card} ${recordTransactionType(r) === 'refund' ? '退刷 退款' : '消費'}`).toLowerCase().includes(q));
+  if(q) list = list.filter(r => (`${r.item} ${r.note} ${r.card} ${recordTransactionType(r) === 'refund' ? '退刷 退款' : recordTransactionType(r)==='points_offset' ? '抵扣點數 點數抵扣' : '消費'}`).toLowerCase().includes(q));
 
   countVal.textContent = list.length;
   const total = list.reduce((sum, r) => sum + signedTwd(r), 0);
   totalVal.textContent = `${total < 0 ? '-' : ''}NT$${Math.abs(total).toLocaleString()}`;
 
   if(!list.length){
-    const typeText = transactionTypeFilter === 'refund' ? '退刷' : transactionTypeFilter === 'purchase' ? '消費' : '';
+    const typeText = transactionTypeFilter === 'refund' ? '退刷' : transactionTypeFilter === 'purchase' ? '消費' : transactionTypeFilter==='points_offset' ? '抵扣點數' : '';
     const emptyText = recordStateFilter === 'fee' ? '這個刷卡月份沒有符合帳期的待補海外手續費消費' : recordStateFilter === 'pending' ? `這個月份目前沒有${typeText ? typeText + '且' : ''}待補金額` : `這個條件下沒有${typeText || ''}紀錄`;
     recordList.innerHTML=`<div class="empty">${emptyText}<br><small>目前月份：${esc(currentMonth || '無')}</small></div>`;
     if(typeof renderBillingOverview === 'function') renderBillingOverview();
@@ -132,19 +132,20 @@ renderRecords = function(){
 
   recordList.innerHTML = list.map(r => {
     const isRefund = recordTransactionType(r) === 'refund';
+    const isPoints = recordTransactionType(r) === 'points_offset';
     const isPending = isPendingAmount(r);
     return `
-      <div class="record ${bankClass(r.bank)} ${isRefund ? 'refund-record' : ''}">
+      <div class="record ${bankClass(r.bank)} ${isRefund || isPoints ? 'refund-record' : ''}">
         <div class="rtop">
-          <div><div class="date">${esc(r.date)}</div><div class="item">${isRefund ? '<span class="refund-badge">退刷</span>' : ''}${esc(r.item)}</div></div>
+          <div><div class="date">${esc(r.date)}</div><div class="item">${isRefund ? '<span class="refund-badge">退刷</span>' : isPoints ? '<span class="refund-badge">抵扣點數</span>' : ''}${esc(r.item)}</div></div>
           <div class="bank">${esc(r.bank)}${r.bank==='中信' && r.card?'・'+esc(r.card):''}</div>
         </div>
-        <div class="money ${isRefund ? 'refund-money' : ''}">${transactionMoneyText(r)}</div>
+        <div class="money ${isRefund || isPoints ? 'refund-money' : ''}">${transactionMoneyText(r)}</div>
         ${isForeignRecord(r) && Number.isFinite(Number(r.twd)) && Math.abs(Number(r.twd))>0 ? `<div class="meta cc-original-amount">原刷金額（未含手續費）：${isRefund?'-':''}NT$${Math.max(0,Math.abs(Number(r.twd))-Math.max(0,Number(r.overseasFee)||0)).toLocaleString('zh-TW')}</div>` : ''}
         ${r.currency && r.foreign!==null && r.foreign!==undefined && r.foreign!=='' && Number.isFinite(Number(r.foreign)) && Math.abs(Number(r.foreign))>0 ? `<div class="meta">外幣：${esc(r.currency||'未指定')} ${isRefund?'-':''}${esc(ccForeignDisplay(r.currency,Math.abs(Number(r.foreign))))}</div>` : ''}
         ${isForeignRecord(r)&&ccFeeCycleEligible(r.bank,r.date)?`<div class="meta ${Number(r.overseasFee)>0?'cc-fee-confirmed':'cc-fee-pending'}">海外手續費：${Number(r.overseasFee)>0?'NT$'+Number(r.overseasFee).toLocaleString('zh-TW'):'待補登'}</div>`:''}
         ${r.note ? `<div class="meta">備註：${esc(r.note)}</div>` : ''}
-        <div class="meta">交易類型：${isRefund?'退刷':'消費'}</div>
+        <div class="meta">交易類型：${isRefund?'退刷':isPoints?'抵扣點數':'消費'}</div>
         ${isPending ? '<div class="pending-inline">待補台幣金額</div>' : ''}
 
         <div class="record-detail hidden" data-record-detail="${r.id}">
@@ -153,7 +154,7 @@ renderRecords = function(){
         </div>
 
         <div class="rfoot">
-          <span class="status ${isRefund ? 'refund-status' : ''}">${isPending ? '待補' : (isRefund ? '退刷' : esc(r.status || '刷'))}</span>
+          <span class="status ${isRefund ? 'refund-status' : ''}">${isPending ? '待補' : (isRefund ? '退刷' : isPoints ? '抵扣點數' : esc(r.status || '刷'))}</span>
           <div class="actions"><button class="mini detail" data-record-toggle="${r.id}">詳細</button><button class="mini edit" onclick="openEdit(${r.id})">${isPending ? '補金額' : isPendingFee(r) ? '補登手續費' : '修改'}</button><button class="mini del" onclick="deleteRec(${r.id})">刪除</button></div>
         </div>
       </div>`;
