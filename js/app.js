@@ -91,7 +91,7 @@ function ccSetForeignSymbol(sel,prefixId){
  const prefix=document.getElementById(prefixId);
  if(prefix)prefix.textContent=sel.value?ccCurrencySymbol(sel.value):'—';
 }
-[twdInp,foreignInp,editTwd,editForeign].forEach(ccBindMoneyInput);
+[twdInp,foreignInp,editTwd,editForeign,overseasFeeInp,editOverseasFee].forEach(ccBindMoneyInput);
 currencySel.addEventListener('change',()=>ccSetForeignSymbol(currencySel,'foreignSymbol'));
 editCurrency.addEventListener('change',()=>{ccSetForeignSymbol(editCurrency,'editForeignSymbol');const original=records.find(x=>x.id===Number(editId.value));editFeeField.classList.toggle('hidden',!editCurrency.value||!ccFeeCanEdit(original)||!ccFeeCycleEligible(editBank.value,editDate.value));if(!editCurrency.value)editOverseasFee.value='';});
 ccSetForeignSymbol(currencySel,'foreignSymbol');
