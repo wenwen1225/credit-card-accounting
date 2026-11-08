@@ -56,12 +56,12 @@ function previousMonthKey(key){
 
 function netTotalForList(list){
   const purchaseTotal = list
-    .filter(r => recordTransactionType(r) !== 'refund')
+    .filter(r => recordTransactionType(r) === 'purchase')
     .reduce((sum, r) => sum + Math.abs(Number(r.twd) || 0), 0);
   const refundTotal = list
     .filter(r => recordTransactionType(r) === 'refund')
     .reduce((sum, r) => sum + Math.abs(Number(r.twd) || 0), 0);
-  return purchaseTotal - refundTotal;
+  return purchaseTotal - refundTotal - list.filter(r=>recordTransactionType(r)==='points_offset').reduce((sum,r)=>sum+Math.abs(Number(r.twd)||0),0);
 }
 
 function donutBackground(parts){
@@ -152,7 +152,7 @@ function renderTopTransactions(list){
   if(!root) return;
 
   const top = list
-    .filter(r => recordTransactionType(r) !== 'refund' && Math.abs(Number(r.twd) || 0) > 0)
+    .filter(r => recordTransactionType(r) === 'purchase' && Math.abs(Number(r.twd) || 0) > 0)
     .sort((a,b) => Math.abs(Number(b.twd)||0) - Math.abs(Number(a.twd)||0))
     .slice(0,5);
 
@@ -177,7 +177,7 @@ function renderMonthlyTransactionCounts(year, selectedKey){
       if(!key || !key.startsWith(year+'-')) return;
       const index = Number(key.slice(5,7))-1;
       if(index<0 || index>=12) return;
-      if(recordTransactionType(r)==='refund') counts[index].refund++;
+      if(['refund','points_offset'].includes(recordTransactionType(r))) counts[index].refund++;
       else counts[index].purchase++;
     });
   }
@@ -364,11 +364,12 @@ function renderAnalysis(){
 
   const selectedKey = selectedAnalysisMonthKey();
   const list = cycleReady ? ccAnalysisMonthList(selectedKey) : [];
-  const purchase = list.filter(r => recordTransactionType(r) !== 'refund');
+  const purchase = list.filter(r => recordTransactionType(r) === 'purchase');
   const refunds = list.filter(r => recordTransactionType(r) === 'refund');
   const purchaseTotal = purchase.reduce((sum, r) => sum + Math.abs(Number(r.twd) || 0), 0);
   const refundTotal = refunds.reduce((sum, r) => sum + Math.abs(Number(r.twd) || 0), 0);
-  const netTotal = purchaseTotal - refundTotal;
+  const pointsTotal = list.filter(r => recordTransactionType(r)==='points_offset').reduce((sum,r)=>sum+Math.abs(Number(r.twd)||0),0);
+  const netTotal = purchaseTotal - refundTotal - pointsTotal;
   const pendingCount = list.filter(r => Number(r.foreign) !== 0 && !(Math.abs(Number(r.twd)) > 0)).length;
   const status=document.getElementById('analysisDataStatus');
   if(status)status.textContent=cycleReady?'所有分析依四家銀行的實際 Sheet 帳期分頁計算（包含上期剩餘）；同帳期的統計金額一致。':'正在載入帳期資料；下方統計完成後顯示。';
@@ -424,9 +425,10 @@ function renderAnalysis(){
 
   const typeParts = [
     {label:'消費', value:purchaseTotal, color:'#75b7de'},
-    {label:'退刷', value:refundTotal, color:'#dc8ea0'}
+    {label:'退刷', value:refundTotal, color:'#dc8ea0'},
+    {label:'抵扣點數', value:pointsTotal, color:'#9a91cc'}
   ];
-  const typeTotal = purchaseTotal + refundTotal;
+  const typeTotal = purchaseTotal + refundTotal + pointsTotal;
   const typeDonut = document.getElementById('typeDonut');
   if(typeDonut) typeDonut.style.background = donutBackground(typeParts);
   const typeCenter = document.getElementById('typeDonutCenter');
