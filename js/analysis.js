@@ -184,7 +184,7 @@ function renderMonthlyTransactionCounts(year, selectedKey){
   const total = counts.reduce((sum,m)=>sum+m.purchase+m.refund,0);
   const max = Math.max(1,...counts.map(m=>m.purchase+m.refund));
   const selected = counts.find(m=>m.key===selectedKey);
-  const detail = selected ? `${selected.month}月：${selected.purchase+selected.refund} 筆（消費 ${selected.purchase}、退刷 ${selected.refund}）` : '';
+  const detail = selected ? `${selected.month}月：${selected.purchase+selected.refund} 筆（消費 ${selected.purchase}、退刷／抵扣 ${selected.refund}）` : '';
   root.innerHTML = `<div class="monthly-count-summary"><strong>${esc(year||'—')} 年合計 ${total} 筆</strong><span>${detail}</span></div>`+
     '<div class="monthly-count-scroll"><div class="monthly-count-chart">'+counts.map(m=>{
       const n=m.purchase+m.refund;
@@ -192,8 +192,8 @@ function renderMonthlyTransactionCounts(year, selectedKey){
       const purchaseHeight=n?m.purchase/n*100:0;
       const refundHeight=n?m.refund/n*100:0;
       const active=m.key===selectedKey?' active':'';
-      return `<div class="monthly-count-column${active}" title="${m.month}月：${n}筆（消費${m.purchase}、退刷${m.refund}）"><strong>${n}</strong><div class="monthly-count-bar-area"><div class="monthly-count-bar" style="height:${height}%"><div class="monthly-count-purchase" style="height:${purchaseHeight}%"></div><div class="monthly-count-refund" style="height:${refundHeight}%"></div></div></div><span>${m.month}月</span></div>`;
-    }).join('')+'</div></div><div class="monthly-count-legend"><span>● 消費筆數</span><span>● 退刷筆數</span></div>';
+      return `<div class="monthly-count-column${active}" title="${m.month}月：${n}筆（消費${m.purchase}、退刷／抵扣${m.refund}）"><strong>${n}</strong><div class="monthly-count-bar-area"><div class="monthly-count-bar" style="height:${height}%"><div class="monthly-count-purchase" style="height:${purchaseHeight}%"></div><div class="monthly-count-refund" style="height:${refundHeight}%"></div></div></div><span>${m.month}月</span></div>`;
+    }).join('')+'</div></div><div class="monthly-count-legend"><span>● 消費筆數</span><span>● 退刷／抵扣筆數</span></div>';
 }
 
 // 銀行已繳費歷史依「消費帳期月份」列示，不拿交易日期或刷／繳明細加總冒充銀行實繳。
