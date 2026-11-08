@@ -6,6 +6,7 @@ const transactionTypeHint = document.getElementById('transactionTypeHint');
 const addBox = document.querySelector('#addPage .box');
 
 function recordTransactionType(record){
+  if(['points_offset','抵扣點數','點數抵扣'].includes(record?.transactionType)) return 'points_offset';
   if(record?.transactionType === 'refund') return 'refund';
   if(Number(record?.twd) < 0) return 'refund';
   return 'purchase';
@@ -14,30 +15,47 @@ function recordTransactionType(record){
 function signedTwd(record){
   if(record?.twd === null || record?.twd === '' || record?.twd === undefined) return 0;
   const amount = Math.abs(Number(record.twd) || 0);
-  return recordTransactionType(record) === 'refund' ? -amount : amount;
+  return ['refund','points_offset'].includes(recordTransactionType(record)) ? -amount : amount;
 }
 
 function transactionMoneyText(record){
   if(record?.twd === null || record?.twd === '' || record?.twd === undefined) return '待補';
   const amount = Math.abs(Number(record.twd) || 0).toLocaleString();
-  return recordTransactionType(record) === 'refund' ? `-NT$${amount}` : `NT$${amount}`;
+  return ['refund','points_offset'].includes(recordTransactionType(record)) ? `-NT${amount}` : `NT${amount}`;
 }
 
 function updateTransactionTypeUi(){
   const isRefund = transactionTypeSel?.value === 'refund';
-  addBox?.classList.toggle('refund-mode', isRefund);
+  const isPoints = transactionTypeSel?.value === 'points_offset';
+  addBox?.classList.toggle('refund-mode', isRefund || isPoints);
   if(transactionTypeHint){
     transactionTypeHint.textContent = isRefund
       ? '退刷金額請照正常輸入正數，之後統計會自動扣除。'
-      : '一般刷卡消費。';
+      : isPoints ? '請輸入實際折抵的台幣金額（正數）。本期應繳與淨消費都會扣除，原始消費紀錄不變。' : '一般刷卡消費。';
   }
   if(twdInp){
     twdInp.placeholder = isRefund ? '例如：1280（不用輸入負號）' : '請輸入台幣金額（必填）';
   }
-  const saveText = isRefund ? '儲存退刷紀錄' : '儲存刷卡紀錄';
+  const saveText = isRefund ? '儲存退刷紀錄' : isPoints ? '儲存點數抵扣' : '儲存刷卡紀錄';
   if(saveBtn) saveBtn.textContent = saveText;
 }
 
+// 舊 GAS 會把未知交易類型當消費；確認後端已升級才開放新增。
+let ccPointsBackendReady = false;
+async function ccCheckPointsBackend(){
+  try {
+    const response = await fetch('/api/gas?action=health',{cache:'no-store'});
+    const data = await response.json();
+    const v = String(data.version||'').split('.').map(Number);
+    ccPointsBackendReady = !!data.ok && v.length>=3 && (v[0]>2 || v[0]===2 && (v[1]>8 || v[1]===8 && v[2]>=18));
+  }catch(_){ccPointsBackendReady=false;}
+  document.querySelectorAll('option[value="points_offset"]').forEach(option=>{
+    option.disabled = !ccPointsBackendReady;
+    option.textContent=ccPointsBackendReady?'抵扣點數':'抵扣點數（需更新後端）';
+  });
+  return ccPointsBackendReady;
+}
+ccCheckPointsBackend();
 transactionTypeSel?.addEventListener('change', updateTransactionTypeUi);
 updateTransactionTypeUi();
 
