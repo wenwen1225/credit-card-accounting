@@ -49,8 +49,16 @@ function ccFeeEditRender(){
     (ccFeeEditQueue.length?'<div>'+ccFeeEditQueue.map(x=>
       '<div style="margin-top:5px">'+esc(x.bank)+'・'+esc(x.item)+'：NT$'+Number(x.fee).toLocaleString('zh-TW')+'（'+(x.state==='queued'?'待同步':x.state==='sending'?'正在同步':'結果不明，請到 Sheet 核對')+'）</div>'
     ).join('')+'</div>':'')+
-    (uncertain?'<button type="button" id="ccFeeEditReviewBtn" style="margin-top:8px;padding:8px 12px;border-radius:9px;border:1px solid currentColor;background:transparent;cursor:pointer">核對 Sheet</button>':'');
+    (uncertain?'<button type="button" id="ccFeeEditReviewBtn" style="margin-top:8px;padding:8px 12px;border-radius:9px;border:1px solid currentColor;background:transparent;cursor:pointer">核對 Sheet</button><button type="button" id="ccFeeEditClearBtn" style="margin:8px 0 0 8px;padding:8px 12px;border-radius:9px;border:1px solid currentColor;background:transparent;cursor:pointer">人工確認後解除鎖定</button>':'');
   target.querySelector('#ccFeeEditReviewBtn')?.addEventListener('click',()=>void ccFeeEditReview());
+  target.querySelector('#ccFeeEditClearBtn')?.addEventListener('click',async()=>{
+    if(!confirm('只有你已經核對 Google Sheet 的實際手續費、確定不用重送待確認修改時，才可以解除鎖定。\\n這會清除本機待確認佇列，不會修改 Sheet。確認嗎？'))return;
+    ccFeeEditQueue=ccFeeEditQueue.filter(x=>x.state!=='uncertain');
+    try{ccFeeEditPersist();}catch(err){alert('本機儲存失敗：'+err.message);return;}
+    ccFeeEditAlert='已解除本機待核對鎖定，請從 Sheet 更新資料後再修改。';
+    ccFeeEditRender();
+    try{await loadRecords({force:true});}catch(_){}
+  });
 }
 function ccFeeEditQueueRecord(before,after){
   const key=ccFeeEditSourceKey(before.source);
