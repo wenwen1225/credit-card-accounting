@@ -48,7 +48,9 @@ function ccFeeEditRender(){
     (ccFeeEditAlert?'<p>'+esc(ccFeeEditAlert)+'</p>':'')+
     (ccFeeEditQueue.length?'<div>'+ccFeeEditQueue.map(x=>
       '<div style="margin-top:5px">'+esc(x.bank)+'・'+esc(x.item)+'：NT$'+Number(x.fee).toLocaleString('zh-TW')+'（'+(x.state==='queued'?'待同步':x.state==='sending'?'正在同步':'結果不明，請到 Sheet 核對')+'）</div>'
-    ).join('')+'</div>':'');
+    ).join('')+'</div>':'')+
+    (uncertain?'<button type="button" id="ccFeeEditReviewBtn" style="margin-top:8px;padding:8px 12px;border-radius:9px;border:1px solid currentColor;background:transparent;cursor:pointer">核對 Sheet</button>':'');
+  target.querySelector('#ccFeeEditReviewBtn')?.addEventListener('click',()=>void ccFeeEditReview());
 }
 function ccFeeEditQueueRecord(before,after){
   const key=ccFeeEditSourceKey(before.source);
@@ -57,7 +59,8 @@ function ccFeeEditQueueRecord(before,after){
   if(typeof ccQueueRead==='function'&&ccQueueRead().some(x=>x.record?.bank===before.bank)){
     alert('這家銀行還有新增交易待同步，請先完成同步後再補手續費。');return false;
   }
-  const entry={id:String(Date.now())+'-'+Math.random().toString(36).slice(2),key,bank:before.bank,item:before.item,fee:Number(after.overseasFee),record:{...after,source:{...before.source}},state:'queued',createdAt:new Date().toISOString()};
+  if(ccFeeEditQueue.some(x=>x.state==='uncertain')){alert('之前有手續費同步結果不明，請先按「核對 Sheet」確認後，再補登新的手續費。');return false;}
+  const entry={id:String(Date.now())+'-'+Math.random().toString(36).slice(2),key,bank:before.bank,item:before.item,oldFee:Number(before.overseasFee)||0,fee:Number(after.overseasFee),record:{...after,source:{...before.source}},state:'queued',createdAt:new Date().toISOString()};
   ccFeeEditQueue.push(entry);
   try{ccFeeEditPersist();}catch(err){ccFeeEditQueue=ccFeeEditQueue.filter(x=>x.id!==entry.id);alert('無法安全暫存手續費：'+err.message);return false;}
   ccFeeEditAlert='已加入背景同步。可繼續補登其他筆；離開分頁前請確認全部已同步。';
@@ -65,6 +68,39 @@ function ccFeeEditQueueRecord(before,after){
   if(typeof renderRecords==='function')renderRecords();
   void ccFeeEditFlush();
   return true;
+}
+async function ccFeeEditReview(){
+  const uncertain=ccFeeEditQueue.filter(x=>x.state==='uncertain');
+  if(!uncertain.length)return;
+  ccFeeEditAlert='正在核對 Sheet 最新資料，請勿重複點擊…';ccFeeEditRender();
+  try{
+    const year=Number(window.ccSelectedDataYear||new Date().getFullYear());
+    const cloud=await fetchCloudRecords(year,{cycleRead:true});
+    let confirmed=0,unwritten=0,ambiguous=0;
+    for(const entry of uncertain){
+      const remote=cloud.records.find(r=>ccFeeEditSourceKey(r.source)===entry.key);
+      if(!remote){ambiguous++;continue;}
+      const currentFee=Number(remote.overseasFee)||0;
+      if(Math.abs(currentFee-entry.fee)<0.005){
+        if(typeof ccMarkLocalMutation==='function')ccMarkLocalMutation();
+        records=records.map(r=>ccFeeEditSourceKey(r.source)===entry.key?{...remote,id:r.id}:r);
+        ccFeeEditQueue=ccFeeEditQueue.filter(x=>x.id!==entry.id);
+        confirmed++;
+      }else if(Math.abs(currentFee-entry.oldFee)<0.005){
+        unwritten++;
+        entry.error='Sheet 仍是補登前的金額；若要重試，請先從 Sheet 更新資料後重新修改此筆。';
+      }else{
+        ambiguous++;
+        entry.error='Sheet 手續費已被其他操作修改，請人工核對。';
+      }
+    }
+    ccFeeEditPersist();
+    if(typeof saveRecordsCache==='function')saveRecordsCache(year,'');
+    if(typeof renderCurrentRecords==='function')renderCurrentRecords('已重新核對 Sheet 手續費');
+    ccFeeEditAlert='核對完成：'+confirmed+' 筆確認已寫入，'+unwritten+' 筆仍為原金額，'+ambiguous+' 筆需要人工確認。未確認的紀錄不會自動重送。';
+    // 已確認沒有寫入時，使用者可以清除此筆待同步狀態後重新從 Sheet 編輯。
+    ccFeeEditRender();
+  }catch(err){ccFeeEditAlert='核對失敗：'+String(err.message||err)+'。請勿重複送出。';ccFeeEditRender();}
 }
 async function ccFeeEditFlush(){
   if(ccFeeEditBusy)return;
