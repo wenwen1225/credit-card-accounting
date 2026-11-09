@@ -148,6 +148,7 @@ async function ccFeeEditFlush(){
         if(!fresh||ccFeeEditSourceKey(fresh.source)!==entry.key)throw new Error('回傳的交易位置不符，需人工核對');
         // 後端回傳才視為成功；用新的 rowHash 更新前端和快取。
         if(typeof ccMarkLocalMutation==='function')ccMarkLocalMutation();
+        if(typeof ccCreditAcceptConfirmedRecord==='function')ccCreditAcceptConfirmedRecord(fresh);
         records=records.map(r=>ccFeeEditSourceKey(r.source)===entry.key?{...fresh,id:r.id}:r);
         if(typeof saveRecordsCache==='function')saveRecordsCache(Number(window.ccSelectedDataYear||new Date().getFullYear()),'');
         ccFeeEditQueue=ccFeeEditQueue.filter(x=>x.id!==entry.id);
