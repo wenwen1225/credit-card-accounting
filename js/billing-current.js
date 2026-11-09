@@ -264,9 +264,26 @@ function effectiveCycleState(record){
 let ccMoveCycleBusy=false;
 let ccMoveCycleMessage='';
 let ccMoveCycleMessageKind='info';
+function ccMoveCycleToast(){
+  let el=document.getElementById('ccMoveCycleToast');
+  if(!el){
+    el=document.createElement('div');
+    el.id='ccMoveCycleToast';
+    el.setAttribute('role','status');
+    el.setAttribute('aria-live','polite');
+    Object.assign(el.style,{position:'fixed',bottom:'22px',left:'50%',transform:'translateX(-50%)',width:'min(92vw,540px)',padding:'14px 18px',borderRadius:'12px',boxShadow:'0 9px 32px rgba(0,0,0,.22)',background:'#fff',color:'#24374a',border:'2px solid #a8b9d7',fontWeight:'700',fontSize:'14px',lineHeight:'1.55',zIndex:'2147483647',display:'none',pointerEvents:'none',whiteSpace:'pre-line',textAlign:'center'});
+    document.body.appendChild(el);
+  }
+  return el;
+}
 function ccMoveCycleStatus(message,kind='info'){
   ccMoveCycleMessage=String(message||'');
   ccMoveCycleMessageKind=kind;
+  const toast=ccMoveCycleToast();
+  toast.textContent=ccMoveCycleMessage;
+  toast.style.display=ccMoveCycleMessage?'block':'none';
+  toast.style.borderColor=kind==='error'?'#dc7a7a':kind==='success'?'#75ad8a':'#a8b9d7';
+  toast.style.background=kind==='error'?'#fff3f3':kind==='success'?'#eefaf1':'#fff';
   const existing=document.getElementById('ccMoveCycleFeedback');
   if(existing){
     existing.textContent=ccMoveCycleMessage;
@@ -280,6 +297,8 @@ function ccMoveCycleSetBusy(busy){
     btn.disabled=busy;
     btn.style.opacity=busy?'0.6':'';
     btn.style.cursor=busy?'progress':'';
+    if(busy){btn.dataset.originalText=btn.textContent;btn.textContent='處理中…';}
+    else if(btn.dataset.originalText){btn.textContent=btn.dataset.originalText;delete btn.dataset.originalText;}
   });
 }
 async function toggleRecordToNext(recordKey){
@@ -439,6 +458,7 @@ function renderBillingOverview(){
         ${!bankPaid && !verified && payable.length && !payableMissing ? '<div class="billing-warning">以上為 Google Sheet 上期交易明細加總（估算），尚非銀行正式帳單；請核對後再登記。</div>' : ''}
         <button type="button" data-cc-statement="${esc(bank)}" data-month="${esc(snapshotKey)}">登記／修正銀行帳單金額</button>
         <div class="billing-note">${ccStatementCloudReady ? "核對金額已由 GAS 雲端同步；不修改交易 Google Sheet。" : esc(ccStatementCloudError)}</div>
+        ${!bankPaid ? `<div class="billing-note">上期交易明細淨額：<strong>${moneyText(estimatedPayable)}</strong>（依 Sheet 分頁計算；搬移後會變動，已核對銀行帳單金額不會自動改寫）</div>` : ''}
         ${payableMissing ? `<div class="billing-warning">另有 ${payableMissing} 筆尚未補台幣金額</div>` : ''}
 
         ${!bankPaid ? `<div class="billing-next-box">
