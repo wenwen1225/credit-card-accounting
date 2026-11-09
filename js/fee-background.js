@@ -88,6 +88,7 @@ function ccFeeEditQueueRecord(before,after){
     record:{...after,source:{...before.source}},state:'queued',createdAt:new Date().toISOString()};
   ccFeeEditQueue.push(entry);
   try{ccFeeEditPersist();}catch(err){ccFeeEditQueue=ccFeeEditQueue.filter(x=>x.id!==entry.id);alert('無法安全暫存交易修改：'+err.message);return false;}
+  if(typeof ccMarkLocalMutation==='function')ccMarkLocalMutation();
   ccFeeEditAlert='已加入背景同步。可繼續修改其他筆；離開分頁前請確認全部已同步。';
   ccFeeEditRender();
   if(typeof renderRecords==='function')renderRecords();
