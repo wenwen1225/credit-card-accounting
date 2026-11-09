@@ -62,7 +62,7 @@
       <div id="typeTabs" class="tabs compact-tabs"><button class="chip active" data-type="all">全部</button><button class="chip" data-type="purchase">消費</button><button class="chip" data-type="refund">退刷</button><button class="chip" data-type="points_offset">抵扣點數</button></div>
       <div class="record-tools-row"><div id="recordStateTabs" class="tabs compact-tabs record-state-tabs"><button class="chip" data-state="pending">待補金額 <span id="pendingCountBadge" class="count-badge hidden">0</span></button><button class="chip" data-state="fee">待補登海外手續費 <span id="feeCountBadge" class="count-badge hidden">0</span></button></div><button id="clearFiltersBtn" class="clear-filter-btn" type="button">清除篩選</button></div>
       <div class="field"><input id="searchInp" placeholder="搜尋項目、備註、卡別"></div>
-      </aside><div class="cc-record-results"><div class="cc-panel-eyebrow">交易明細</div><div id="recordList"><div class="empty">正在讀取 Google Sheet 資料…</div></div>
+      </aside><div class="cc-record-results"><div class="cc-panel-eyebrow">交易明細</div><div id="ccFeeEditStatus" role="status" aria-live="polite" style="display:none;border:1px solid #b7c6dd;border-radius:10px;padding:12px;margin:8px 0 12px;background:rgba(160,180,210,.10);font-size:13px;line-height:1.6"></div><div id="recordList"><div class="empty">正在讀取 Google Sheet 資料…</div></div>
       <div id="pendingList" class="hidden"></div>
 </div></div>
     </section>
@@ -95,14 +95,15 @@
 
   <script src="js/config.js?v=20261109-backend-2819-v579"></script>
   <script src="js/date-select.js?v=20261025-syncfix-v551"></script>
-  <script src="js/app.js?v=20261108-points-v576"></script>
+  <script src="js/app.js?v=20261109-fee-bg-v580"></script>
   <script src="js/data-sync.js?v=20261108-points-v576"></script>
   <script src="js/offline-queue.js?v=20261025-syncfix-v551"></script>
   <script src="js/year-view.js?v=20261025-syncfix-v551"></script>
   <script src="js/billing-current.js?v=20261109-statement-fee-v579"></script>
   <script src="js/cycle-payment.js?v=20261108-points-v576"></script>
   <script src="js/transaction-type.js?v=20261108-points-v576"></script>
-  <script src="js/record-filter.js?v=20261108-points-v576"></script>
+  <script src="js/record-filter.js?v=20261109-fee-bg-v580"></script>
+  <script src="js/fee-background.js?v=20261109-fee-bg-v580"></script>
   <script src="js/analysis.js?v=20261108-points-v576"></script>
   <script src="js/year-manager.js?v=20261025-syncfix-v551"></script>
   <script src="js/credit-limit.js?v=20261104-cache-v569"></script>
