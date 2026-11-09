@@ -347,6 +347,7 @@ function renderPending(){
 
 function openEdit(id){
   const r=records.find(x=>x.id===id); if(!r) return;
+  if(typeof ccFeeEditIsPending==='function' && ccFeeEditIsPending(r.source)){alert('這筆海外手續費正在背景同步或尚待核對，請先確認結果。');return;}
   editId.value=r.id; editTransactionType.value=typeof recordTransactionType==='function'?recordTransactionType(r):'purchase'; editBank.value=r.bank; if(r.bank==='中信' && r.card && !Array.from(editCard.options).some(o=>o.value===r.card)){const option=new Option(r.card,r.card);editCard.add(option);} editCard.value=r.bank==='中信'?(r.card||APP_CONFIG.banks['中信'].cards[0]):APP_CONFIG.banks['中信'].cards[0]; ccUpdateEditCardVisibility(); editDate.value=r.date; editStatus.value=r.status||'刷'; editItem.value=r.item; editTwd.value=r.twd==null?'':ccMoneyPretty(Math.max(0,Math.abs(Number(r.twd))-(ccFeeCanEdit(r)?(Number(r.overseasFee)||0):0))); editCurrency.value=Number(r.foreign)>0?(r.currency||''):''; editForeign.value=Number(r.foreign)>0?ccMoneyPretty(r.foreign):''; ccSetForeignSymbol(editCurrency,'editForeignSymbol'); editFeeField.classList.toggle('hidden',!(Number(r.foreign)>0)||!ccFeeCanEdit(r)); editOverseasFee.value=Number(r.overseasFee)>0?ccMoneyPretty(r.overseasFee):''; editNote.value=r.note||''; editModal.classList.add('show');
 }
 closeEdit.addEventListener('click',()=>editModal.classList.remove('show'));
@@ -364,6 +365,11 @@ modalSave.addEventListener('click', async()=>{
   if(editTransactionType.value==='points_offset' && editForeignText){alert('點數抵扣不支援外幣。');return;}
   const updated={...r,transactionType:editTransactionType.value,overseasFee:fee,bank:editBank.value,card:editBank.value==='中信'?editCard.value:'',date:editDate.value,status:editStatus.value,item:editItem.value.trim(),twd:ccMoneyValid(editTwd.value)?ccMoneyNumber(editTwd.value):null,currency:editCurrency.value,foreign:editForeignText?Number(editForeignText):null,note:editNote.value.trim(),foreignAmount:editForeignText?Number(editForeignText):null};
   if(!r.source?.rowHash){alert('來源資訊尚未更新，請先從 Sheet 更新資料再修改。');return;}
+  if(typeof ccIsFeeOnlyEdit==='function' && ccIsFeeOnlyEdit(r,updated)){
+    if(!ccFeeEditQueueRecord(r,updated))return;
+    editModal.classList.remove('show');
+    return;
+  }
   try{ modalSave.disabled=true; modalSave.textContent='儲存中…'; const response=await postToApi({action:'updateRecord',record:updated}); if(!response.record?.source?.rowHash)throw Error('GAS 未回傳來源驗證資料'); const fresh=mapApiRecords([response.record])[0]; if(typeof ccMarkLocalMutation==='function')ccMarkLocalMutation(); records=records.map(x=>x.id===id?{...fresh,id}:x); if(typeof ccConfirmedWrites!=='undefined' && typeof ccSourceKey==='function'){const key=ccSourceKey(fresh.source);if(ccConfirmedWrites.has(key))ccConfirmedWrites.set(key,{...fresh,id});} saveRecordsCache(Number(window.ccSelectedDataYear||new Date().getFullYear()),''); editModal.classList.remove('show'); renderCurrentRecords('修改成功，已同步 Google Sheet'); alert('修改成功！'); }
   catch(err){ alert('修改失敗：'+err.message); }
   finally{ modalSave.disabled=false; modalSave.textContent='儲存修改'; }
@@ -372,6 +378,7 @@ modalSave.addEventListener('click', async()=>{
 async function deleteRec(id){
   const r=records.find(x=>x.id===id);
   if(!r)return;
+  if(typeof ccFeeEditIsPending==='function' && ccFeeEditIsPending(r.source)){alert('此筆手續費正在背景同步或需要核對，暫時不能刪除。');return;}
   if(!r.source?.rowHash){
     alert('這筆紀錄缺少最新的來源驗證資訊，系統會先從 Sheet 更新資料；更新後請再按一次刪除。');
     await loadRecords({force:true});
