@@ -147,7 +147,7 @@ renderRecords = function(){
         ${isForeignRecord(r)&&ccFeeCycleEligible(r.bank,r.date)?`<div class="meta ${Number(r.overseasFee)>0?'cc-fee-confirmed':'cc-fee-pending'}">海外手續費：${Number(r.overseasFee)>0?'NT$'+Number(r.overseasFee).toLocaleString('zh-TW'):'待補登'}</div>`:''}
         ${r.note ? `<div class="meta">備註：${esc(r.note)}</div>` : ''}
         <div class="meta">交易類型：${isRefund?'退刷':isPoints?'抵扣點數':'消費'}</div>
-        ${feeSyncing ? '<div class="meta cc-fee-pending">海外手續費背景同步中／需核對，暫不可修改或刪除</div>' : ''}
+        ${feeSyncing ? '<div class="meta cc-fee-pending">此筆交易正在背景同步／需核對，暫不可修改或刪除</div>' : ''}
         ${isPending ? '<div class="pending-inline">待補台幣金額</div>' : ''}
 
         <div class="record-detail hidden" data-record-detail="${r.id}">
