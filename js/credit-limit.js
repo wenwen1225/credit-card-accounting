@@ -96,6 +96,28 @@ function ccCreditSaveSnapshot(){
   try{localStorage.setItem(CC_CREDIT_CACHE_KEY,JSON.stringify(snapshot));}catch(_){}
 }
 
+// 已由 GAS 確認寫入／修改的單筆交易，可直接更新本機額度快照。
+function ccCreditAcceptConfirmedRecord(apiRecord){
+  if(!ccCreditVerified || !apiRecord?.source || typeof ccSourceKey!=='function')return false;
+  const source=apiRecord.source;
+  const key=ccSourceKey(source);
+  const match=String(source.sheetName||'').match(/^(\d{2})\/(\d{2})\/(\d{2})$/);
+  if(!key || !match)return false;
+  const year=2000+Number(match[1]);
+  const part=ccCreditByYear[year];
+  if(!part || !Array.isArray(part.rows))return false;
+  const row={...apiRecord};
+  const index=part.rows.findIndex(r=>ccSourceKey(r.source)===key);
+  if(index<0)part.rows.push(row);
+  else part.rows[index]=row;
+  // 此時 GAS 已確認寫入；不須等待整年度下載就可更新已占用額度。
+  ccCreditRows=ccUniqueSourceRecords(Object.values(ccCreditByYear).flatMap(part=>part.rows));
+  ccCreditEpoch=ccMutationEpoch;
+  ccCreditVerified=true;
+  ccCreditSaveSnapshot();
+  ccRenderCreditLimits();
+  return true;
+}
 function ccCreditCycleMonth(bank, tab){
   const match=String(tab||'').match(/^(\d{2})\/(\d{2})\/(\d{2})$/);
   if(!match)throw Error('有交易缺少可辨識的帳期分頁');
