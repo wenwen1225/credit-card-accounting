@@ -262,26 +262,86 @@ function effectiveCycleState(record){
 }
 
 let ccMoveCycleBusy=false;
+let ccMoveCycleMessage='';
+let ccMoveCycleMessageKind='info';
+function ccMoveCycleStatus(message,kind='info'){
+  ccMoveCycleMessage=String(message||'');
+  ccMoveCycleMessageKind=kind;
+  const existing=document.getElementById('ccMoveCycleFeedback');
+  if(existing){
+    existing.textContent=ccMoveCycleMessage;
+    existing.style.display=ccMoveCycleMessage?'block':'none';
+    existing.style.borderColor=kind==='error'?'#d58d8d':kind==='success'?'#8ebaa2':'#b7c6dd';
+  }
+}
+function ccMoveCycleSetBusy(busy){
+  ccMoveCycleBusy=busy;
+  document.querySelectorAll('[data-billing-key]').forEach(btn=>{
+    btn.disabled=busy;
+    btn.style.opacity=busy?'0.6':'';
+    btn.style.cursor=busy?'progress':'';
+  });
+}
 async function toggleRecordToNext(recordKey){
-  if(ccMoveCycleBusy)return;
+  if(ccMoveCycleBusy){
+    ccMoveCycleStatus('上一筆交易仍在搬移，請先確認處理結果，再操作下一筆。');
+    return;
+  }
   const record=records.find(r=>recordStableKey(r)===recordKey);
   if(!record?.source?.rowHash){alert('請先從 Sheet 更新資料，再搬移交易。');return;}
   if(record.status!=='刷'){alert('只有狀態為「刷」的交易可以延至下期。');return;}
   if(!navigator.onLine){alert('離線時無法搬移交易。');return;}
   if(typeof ccQueueRead==='function' && ccQueueRead().some(x=>x.record?.bank===record.bank)){alert('這家銀行仍有待同步交易，請先處理。');return;}
-  if(!confirm('確定將「'+record.item+'」搬到下一期 Google Sheet？\n原刷卡日期不變，備註加上「上期剩餘」。'))return;
-  ccMoveCycleBusy=true;
+  if(!confirm('確定將「'+record.item+'」搬到下一期 Google Sheet？\\n原刷卡日期不變，備註加上「上期剩餘」。'))return;
+  ccMoveCycleSetBusy(true);
+  ccMoveCycleStatus('正在搬移「'+record.item+'」至下一期 Sheet，請勿連續點擊。');
+  const originalSource=record.source;
+  const year=Number(window.ccSelectedDataYear||new Date().getFullYear());
   try{
     const response=await fetch(API_URL+'?action=health&_='+Date.now(),{cache:'no-store'});
+    if(!response.ok)throw Error('無法確認後端版本（HTTP '+response.status+'）');
     const health=await response.json();
-    if(!health.ok || !ccSupportsPaymentBackend(String(health.version||'')))throw Error('請先部署 GAS v2.7.11；未執行搬移');
-    const result=await postToApi({action:'moveRecordToNextCycle',source:record.source});
-    if(!result.record?.source?.rowHash)throw Error('搬移結果尚未確認，請檢查 Sheet');
+    if(!health.ok || !ccSupportsPaymentBackend(String(health.version||'')))throw Error('後端版本不支援帳期搬移，未送出');
+    ccMoveCycleStatus('正在寫入下一期並清除原帳期的「'+record.item+'」…');
+    const result=await postToApi({action:'moveRecordToNextCycle',source:originalSource});
+    if(!result?.record?.source?.rowHash)throw Error('後端未回傳完整來源驗證資料；請先檢查兩期 Sheet');
+    const destination=result.record.source;
+    if(destination.sheetName===originalSource.sheetName && destination.spreadsheetId===originalSource.spreadsheetId)
+      throw Error('後端回傳的來源分頁未變更，請檢查 Sheet');
     if(typeof ccMarkLocalMutation==='function')ccMarkLocalMutation();
-    await loadRecords({force:true});
-    alert('已搬至下一期 Google Sheet！\n備註：'+result.record.note);
-  }catch(err){alert('搬移未確認：'+err.message+'\n請先檢查兩期 Sheet，勿直接重複操作。');}
-  finally{ccMoveCycleBusy=false;renderBillingOverview();}
+    // 先依已確認的後端回傳即時更新，避免畫面停留在已搬移的舊交易。
+    const normalized=typeof mapApiRecords==='function'?mapApiRecords([result.record])[0]:null;
+    if(normalized){
+      const currentIndex=records.findIndex(r=>recordStableKey(r)===recordKey);
+      if(currentIndex!==-1)records.splice(currentIndex,1,{...normalized,id:record.id});
+      if(typeof renderCurrentRecords==='function')renderCurrentRecords('交易已搬移，正在核對 Google Sheet');
+    }
+    ccMoveCycleStatus('後端已搬移「'+record.item+'」，正在從 Google Sheet 重新核對…');
+    try{
+      // 使用真正的雲端回傳，確認來源已清空、目的分頁已出現，而非單看快取。
+      const cloud=await fetchCloudRecords(year);
+      const sourceKey=typeof ccSourceKey==='function'?ccSourceKey(originalSource):'';
+      const targetKey=typeof ccSourceKey==='function'?ccSourceKey(destination):'';
+      const sourceStillThere=cloud.records.some(r=>ccSourceKey(r.source)===sourceKey);
+      const targetFound=cloud.records.some(r=>ccSourceKey(r.source)===targetKey && String(r.note||'').includes('上期剩餘'));
+      if(sourceStillThere || !targetFound)throw Error(sourceStillThere?'原帳期仍讀到該筆紀錄':'下一期尚未讀到已搬移的紀錄');
+      records=typeof ccAcceptCloudRecords==='function'?ccAcceptCloudRecords(cloud.records):cloud.records;
+      if(typeof ccSetDataStatus==='function')ccSetDataStatus('fresh',new Date().toISOString());
+      if(typeof saveRecordsCache==='function')saveRecordsCache(year,cloud.dataVersion);
+      if(typeof renderCurrentRecords==='function')renderCurrentRecords('已核對兩期 Google Sheet，交易搬移成功');
+      ccMoveCycleStatus('「'+record.item+'」已搬至 '+destination.sheetName+'，並確認原帳期已移除。','success');
+      alert('搬移完成！\\n項目：'+record.item+'\\n下一期：'+destination.sheetName+'\\n已核對兩期 Google Sheet。');
+    }catch(refreshError){
+      ccMoveCycleStatus('「'+record.item+'」後端已回報搬移，但雲端重新核對尚未完成：'+refreshError.message+'。請核對兩期 Sheet，勿重複按。','error');
+      alert('GAS 已回報搬移完成，但重新核對 Sheet 失敗：'+refreshError.message+'\\n請先檢查原帳期與下一期，勿重複搬移。');
+    }
+  }catch(err){
+    ccMoveCycleStatus('「'+record.item+'」搬移尚未確認：'+err.message+'。請核對兩期 Sheet，勿直接重按。','error');
+    alert('搬移未確認：'+err.message+'\\n請先檢查兩期 Sheet，勿直接重複操作。');
+  }finally{
+    ccMoveCycleSetBusy(false);
+    renderBillingOverview();
+  }
 }
 
 function toggleBillingDetail(bank){
@@ -297,7 +357,7 @@ function renderBillingOverview(){
   }
 
   const now = new Date();
-  const cards = [`<div class="billing-note" style="margin-bottom:12px">${esc(billingDataNotice())}</div>`];
+  const cards = [`<div class="billing-note" style="margin-bottom:12px">${esc(billingDataNotice())}</div><div id="ccMoveCycleFeedback" role="status" aria-live="polite" style="display:${ccMoveCycleMessage?'block':'none'};margin-bottom:12px;padding:12px 14px;border-radius:10px;border:1px solid ${ccMoveCycleMessageKind==='error'?'#d58d8d':ccMoveCycleMessageKind==='success'?'#8ebaa2':'#b7c6dd'};background:rgba(255,255,255,.83);font-weight:600">${esc(ccMoveCycleMessage)}</div>`];
 
   Object.entries(APP_CONFIG.banks).forEach(([bank, cfg]) => {
     // 尚未確認帳期的銀行才以當月交易估算。
@@ -360,7 +420,7 @@ function renderBillingOverview(){
           </div>
           <div class="billing-row-right">
             <strong>${r.twd === null || r.twd === '' ? '待補' : moneyText(r.twd)}</strong>
-            <button type="button" class="billing-move-btn ${moved ? 'undo' : ''}" data-billing-key="${esc(key)}">${moved ? `移回${payableMonthLabel}` : `延至${accumulatingMonthLabel}`}</button>
+            <button type="button" class="billing-move-btn ${moved ? 'undo' : ''}" data-billing-key="${esc(key)}" ${ccMoveCycleBusy ? 'disabled aria-disabled="true"' : ''}>${moved ? `移回${payableMonthLabel}` : `延至${accumulatingMonthLabel}`}</button>
           </div>
         </div>`;
     }).join('');
