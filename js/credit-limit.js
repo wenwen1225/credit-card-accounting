@@ -135,9 +135,41 @@ function ccCreditDueDate(bank,month){
   const due=ccDueDateForClosedCycle({e:end},cfg.paymentDueDay);
   return due?dateToInput(due):'';
 }
+// 舊版「下期」在原 Sheet 留有刷卡紀錄、下一期另增「上期剩餘」。
+// 只有確認下一期有金額相同的承接紀錄，才排除原列占額。
+function ccCreditNextTab(tab){
+  const m=String(tab||'').match(/^(\d{2})\/(\d{2})\/(\d{2})$/);
+  if(!m)return '';
+  const d=new Date(Date.UTC(2000+Number(m[1]),Number(m[2]),Number(m[3])));
+  return String(d.getUTCFullYear()).slice(-2)+'/'+String(d.getUTCMonth()+1).padStart(2,'0')+'/'+String(d.getUTCDate()).padStart(2,'0');
+}
+function ccCreditLegacyDeferredKeys(bank,allRows){
+  const rows=allRows.filter(r=>r.bank===bank&&r.source?.sheetName);
+  const carries=new Map();
+  const moneyKey=r=>Math.round((Number(r.twd)||0)*100);
+  for(const r of rows){
+    if(!(String(r.item||'').trim()==='上期剩餘'||String(r.note||'').includes('上期剩餘')))continue;
+    const key=r.source.sheetName+'|'+moneyKey(r);
+    carries.set(key,(carries.get(key)||0)+1);
+  }
+  const ignored=new Set();
+  for(const r of rows){
+    if(!/(?:^|[｜\s])下期(?:$|[｜\s])|延至下期|延下期/.test(String(r.note||'')))continue;
+    if((r.status||'刷')==='繳')continue;
+    const next=ccCreditNextTab(r.source.sheetName);
+    const key=next+'|'+moneyKey(r);
+    if(next&&(carries.get(key)||0)>0){
+      carries.set(key,carries.get(key)-1);
+      ignored.add(ccSourceKey(r.source));
+    }
+  }
+  return ignored;
+}
 function ccCreditCalculate(bank, rows, archive, payments){
   const groups=new Map();
-  for(const r of ccUniqueSourceRecords(rows).filter(r=>r.bank===bank)){
+  const sourceRows=ccUniqueSourceRecords(rows).filter(r=>r.bank===bank);
+  const legacyDeferred=ccCreditLegacyDeferredKeys(bank,sourceRows);
+  for(const r of sourceRows){
     const month=ccCreditCycleMonth(bank,r.source.sheetName);
     if(!groups.has(month))groups.set(month,[]);
     groups.get(month).push(r);
@@ -155,7 +187,7 @@ function ccCreditCalculate(bank, rows, archive, payments){
       if(statement>0){const due=ccCreditDueDate(bank,month);if(due)dueDates.add(due);}
       continue;
     }
-    const unpaid=items.filter(r=>(r.status||'刷')!=='繳');
+    const unpaid=items.filter(r=>(r.status||'刷')!=='繳' && !legacyDeferred.has(ccSourceKey(r.source)));
     missing+=unpaid.filter(r=>!['刷',''].includes(r.status||'') || r.twd===null || r.twd==='' || !Number.isFinite(Number(r.twd))).length;
     unbilled+=sumTwd(unpaid);
   }
