@@ -116,6 +116,11 @@ async function ccQueueSync(options={}){
     ccQueueBusy=false;ccQueueRender();
     if(typeof renderCurrentRecords==='function')renderCurrentRecords();
     if(sent){
+      // 新增後才補做一次額度快照核對；逐筆回傳時已先即時更新卡片，
+      // 此處只在快照仍落後時才下載，避免每新增一筆都重讀全年度。
+      if(typeof ccRefreshCreditLimits==='function' &&
+         (typeof ccCreditEpoch==='undefined'||ccCreditEpoch!==ccMutationEpoch))
+        void ccRefreshCreditLimits();
       // GAS 已回傳完整交易與 rowHash；不用每次同步都重新下載全年 Sheet。
       const note=document.getElementById('ccQueueSaved');
       if(note){note.textContent='已成功同步 '+sent+' 筆到 Google Sheet。';note.classList.remove('hidden');}
