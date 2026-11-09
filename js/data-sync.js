@@ -189,6 +189,10 @@ function ccSyncToolbar(message, isError = false){
 }
 
 loadRecords = async function(options = {}){
+  if(typeof ccFeeEditQueue!=='undefined'&&ccFeeEditQueue.some(x=>x.state==='queued'||x.state==='sending')){
+    if(typeof ccSyncToolbar==='function')ccSyncToolbar('交易修改仍在背景同步，完成後即可重新整理 Sheet');
+    return;
+  }
   const year = Number(options.year || window.ccSelectedDataYear || new Date().getFullYear());
   window.ccSelectedDataYear = year;
   const force = Boolean(options.force);
@@ -249,6 +253,7 @@ async function ccCheckSheetVersion(){
   if(document.visibilityState==='hidden' || !navigator.onLine || ccVersionCheckBusy)return;
   if(Date.now()-ccLastVersionCheckAt<CC_VERSION_CHECK_INTERVAL_MS)return;
   if(typeof ccQueueBusy!=='undefined' && ccQueueBusy)return;
+  if(typeof ccFeeEditQueue!=='undefined' && ccFeeEditQueue.length)return;
   if(typeof ccCyclePaymentBusy!=='undefined' && ccCyclePaymentBusy)return;
   if(document.getElementById('editModal')?.classList.contains('show'))return;
   const year=Number(window.ccSelectedDataYear||new Date().getFullYear());
