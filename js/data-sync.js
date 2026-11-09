@@ -146,6 +146,7 @@ function ccShowConfirmedWrite(record, response){
   if(!normalized)return false;
   ccConfirmedWrites.set(key,normalized);
   ccMarkLocalMutation();
+  if(typeof ccCreditAcceptConfirmedRecord==='function')ccCreditAcceptConfirmedRecord(normalized);
   const exists=records.some(r=>ccSourceKey(r.source)===key);
   if(!exists)records.unshift({...normalized,id:Math.max(0,...records.map(r=>Number(r.id)||0))+1});
   const year=Number(normalized.date.slice(0,4));
