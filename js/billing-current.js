@@ -425,6 +425,12 @@ function renderBillingOverview(){
 
     const payableMissing = payable.filter(r => r.twd === null || r.twd === '' || !Number.isFinite(Number(r.twd))).length;
     const estimatedPayable = sumTwd(payable);
+    // 手續費只依該帳期實際所在 Sheet 分頁加總，不因原刷卡日期落在別月而重複計入。
+    // GAS 的海外手續費已包含在台幣入帳總額中，此處僅供核對顯示，絕不再加到應繳。
+    const statementOverseasFee = payable.reduce((total, r) => {
+      const fee = Number(r.overseasFee);
+      return total + (Number.isFinite(fee) && fee > 0 ? fee : 0);
+    }, 0);
     const nextMissing = nextAccumulated.filter(r => r.twd === null || r.twd === '').length;
     const isOpen = Boolean(billingDetailOpen[bank]);
 
@@ -453,6 +459,7 @@ function renderBillingOverview(){
 
         <div class="billing-cycle-label">${bankPaid ? `本期累積消費（${rangeText(openCycle)}）` : verified ? "上期帳單（已確認）" : "上期帳單（尚未核對）"}</div>
         <div class="billing-amount">${bankPaid ? moneyText(sumTwd(nextAccumulated)) : verified ? moneyText(knownStatement) : (payable.length && !payableMissing ? moneyText(estimatedPayable) : "待確認")}</div>
+        ${verified && !bankPaid ? `<div class="billing-note cc-statement-fee-total">本期海外手續費總計：<strong>${moneyText(statementOverseasFee)}</strong><small>（已包含在帳期交易入帳金額中，不重複加計）</small></div>` : ''}
         ${bankPaid ? `<div class="billing-note">上期帳單已繳；「分析」可查看各期消費統計。</div>` : ""}
         ${bankPaid && closedRaw.some(r=>(r.status||"刷")==="刷") ? `<div class="billing-note">本期交易進度尚待同步，請使用上方提醒區完成。</div>` : ""}
         ${!bankPaid && !verified && payable.length && !payableMissing ? '<div class="billing-warning">以上為 Google Sheet 上期交易明細加總（估算），尚非銀行正式帳單；請核對後再登記。</div>' : ''}
