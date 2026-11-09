@@ -134,6 +134,7 @@ renderRecords = function(){
     const isRefund = recordTransactionType(r) === 'refund';
     const isPoints = recordTransactionType(r) === 'points_offset';
     const isPending = isPendingAmount(r);
+    const feeSyncing = typeof ccFeeEditIsPending==='function' && ccFeeEditIsPending(r.source);
     return `
       <div class="record ${bankClass(r.bank)} ${isRefund || isPoints ? 'refund-record' : ''}">
         <div class="rtop">
@@ -146,6 +147,7 @@ renderRecords = function(){
         ${isForeignRecord(r)&&ccFeeCycleEligible(r.bank,r.date)?`<div class="meta ${Number(r.overseasFee)>0?'cc-fee-confirmed':'cc-fee-pending'}">海外手續費：${Number(r.overseasFee)>0?'NT$'+Number(r.overseasFee).toLocaleString('zh-TW'):'待補登'}</div>`:''}
         ${r.note ? `<div class="meta">備註：${esc(r.note)}</div>` : ''}
         <div class="meta">交易類型：${isRefund?'退刷':isPoints?'抵扣點數':'消費'}</div>
+        ${feeSyncing ? '<div class="meta cc-fee-pending">海外手續費背景同步中／需核對，暫不可修改或刪除</div>' : ''}
         ${isPending ? '<div class="pending-inline">待補台幣金額</div>' : ''}
 
         <div class="record-detail hidden" data-record-detail="${r.id}">
@@ -155,7 +157,7 @@ renderRecords = function(){
 
         <div class="rfoot">
           <span class="status ${isRefund ? 'refund-status' : ''}">${isPending ? '待補' : (isRefund ? '退刷' : isPoints ? '抵扣點數' : esc(r.status || '刷'))}</span>
-          <div class="actions"><button class="mini detail" data-record-toggle="${r.id}">詳細</button><button class="mini edit" onclick="openEdit(${r.id})">${isPending ? '補金額' : isPendingFee(r) ? '補登手續費' : '修改'}</button><button class="mini del" onclick="deleteRec(${r.id})">刪除</button></div>
+          <div class="actions"><button class="mini detail" data-record-toggle="${r.id}">詳細</button><button class="mini edit" onclick="openEdit(${r.id})" ${feeSyncing?'disabled':''}>${feeSyncing?'同步中／待核對':isPending ? '補金額' : isPendingFee(r) ? '補登手續費' : '修改'}</button><button class="mini del" onclick="deleteRec(${r.id})" ${feeSyncing?'disabled':''}>刪除</button></div>
         </div>
       </div>`;
   }).join('');
